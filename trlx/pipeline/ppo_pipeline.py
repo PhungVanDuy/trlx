@@ -65,6 +65,46 @@ class PPOPipeline(BasePipeline):
         )
 
 
+@register_datapipeline
+class PPOPipelineSumm(BasePipeline):
+    def __init__(self, tokenizer, config, prompt_dataset_path=None):
+        super().__init__()
+        from summarize_dataset import TLDRPPODataset
+        self.dataset = TLDRPPODataset(config.train.train_data_path, tokenizer, max_length=config.train.input_size)
+        self.tokenizer = tokenizer
+
+    def __getitem__(self, index: int) -> PromptElement:
+        encoder_dict = self.dataset[index]
+        tokens = encoder_dict["input_ids"]
+        text = self.tokenizer.decode(tokens.tolist())
+        attention_masks = encoder_dict["attention_masks"]
+        return PromptElement(text, tokens, attention_masks)
+
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def create_loader(
+        self,
+        batch_size: int,
+        shuffle: bool,
+        prep_fn: Callable = None,
+        num_workers: int = 0,
+    ) -> DataLoader:
+        def collate_fn(elems: Iterable[PromptElement]) -> PromptElement:
+            return PromptBatch(
+                [elem.text for elem in elems],
+                torch.stack(
+                    [elem.tokens for elem in elems]
+                ), 
+                torch.stack(
+                    [elem.attention_masks for elem in elems]
+                )
+            )
+
+        return DataLoader(
+            self, batch_size, shuffle, collate_fn=collate_fn, num_workers=num_workers
+        )
+
 class PPORolloutStorage(BaseRolloutStore):
     """
     Rollout storage for training PPO on IMDB review dataset.
@@ -107,6 +147,9 @@ class PPORolloutStorage(BaseRolloutStore):
             res = PPORLBatch(
                 torch.stack(
                     [elem.query_tensor for elem in elems]
+                ),  # Assumes token tensors all same size
+                torch.stack(
+                    [elem.attention_masks for elem in elems]
                 ),  # Assumes token tensors all same size
                 torch.stack([elem.response_tensor for elem in elems]),
                 torch.stack([elem.logprobs for elem in elems]),

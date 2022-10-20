@@ -144,7 +144,7 @@ class AcceleratePPOModel(AccelerateRLModel):
             ):
                 text = self.tokenizer.batch_decode(batch.query_tensors)
                 eval_batch: PromptBatch = PromptBatch(
-                    text=text, tokens=batch.query_tensors
+                    text=text, tokens=batch.query_tensors, attention_masks=batch.attention_masks
                 )
                 query_tensors, response_tensors, response_text = self.act(eval_batch)
                 gen_texts = [q + r for q, r in zip(eval_batch.text, response_text)]
