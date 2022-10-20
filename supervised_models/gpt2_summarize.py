@@ -20,15 +20,9 @@ from transformers import (
 )
 
 
-
-
 def main():
     # Load the GPT tokenizer.
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl', 
-        bos_token='<|startoftext|>',
-        eos_token='<|endoftext|>',
-        pad_token='<|pad|>',
-    )
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
     tokenizer.add_special_tokens({'additional_special_tokens': ["<|tl;dr|>"]})
 
     train_dataset = TLDRDataset("../openai_data/tldr_filtered/train.jsonl", tokenizer, max_length=532)
@@ -43,9 +37,7 @@ def main():
         labels_ids = eval_preds.label_ids
         pred_ids = eval_preds.predictions
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
-        labels_ids[labels_ids == -100] = tokenizer.pad_token_id
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
-
         rouge_output = rouge.compute(
             predictions=pred_str, references=label_str, rouge_types=["rouge2"]
         )["rouge2"].mid
@@ -69,8 +61,11 @@ def main():
         gradient_checkpointing=True,
         half_precision_backend=True,
         gradient_accumulation_steps=8,
-        eval_steps=5000,
-        save_steps=10000
+        num_train_epochs=10,
+        warmup_steps=300,
+        eval_steps=1000,
+        save_steps=5000,
+        load_best_model_at_end=True
     )
 
     trainer = Trainer(
@@ -83,6 +78,7 @@ def main():
         preprocess_logits_for_metrics=preprocess_logits_for_metrics
     )
     trainer.train()
+    trainer.save_model('best_gpt2xl_summ')
 
 if __name__=="__main__":
     main()

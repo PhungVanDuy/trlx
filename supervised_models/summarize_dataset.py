@@ -28,7 +28,6 @@ class TLDRDataset(Dataset):
 
   def __getitem__(self, idx):
     txt = self.post_list[idx] + " <|tl;dr|> " + self.summarize_list[idx]
-    txt = '<|startoftext|> ' + txt + '<|endoftext|>'
     encodings_dict = self.tokenizer(
         txt, truncation=True, max_length=self.max_length, padding="max_length"
     )
