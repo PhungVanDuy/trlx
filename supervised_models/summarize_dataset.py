@@ -2,34 +2,38 @@ import torch
 import json
 from torch.utils.data import Dataset, DataLoader, random_split, RandomSampler, SequentialSampler
 
-def get_dataset_from_jsonl(jsonl_file):
+def get_dataset_from_jsonl(jsonl_file, return_summary=True):
     with open(jsonl_file, 'r') as f:
         dataset = [json.loads(line) for line in f]
-    post_list = [d['post'] for d in dataset]
-    summary_list = [d['summary'] for d in dataset]
-    return post_list, summary_list
+    post_list = []
+    for d in dataset:
+        if return_summary:
+            post = f"SUBREDDIT: r/{d['subreddit']}\nTITLE: {d['title']}\nPOST: {d['post']}\nTL;DR: {d['summary']}"
+        else:
+            post = f"SUBREDDIT: r/{d['subreddit']}\nTITLE: {d['title']}\nPOST: {d['post']}\nTL;DR: "
+        post_list.append(post)
+    return post_list
+    
 
 class TLDRDataset(Dataset):
 
-  def __init__(self, train_path, tokenizer, max_length=768):
+  def __init__(self, train_path, tokenizer, max_length=512):
 
-    self.post_list, self.summarize_list = get_dataset_from_jsonl(train_path)
-    if 'valid' in train_path:
-        self.post_list = self.post_list[:1000]
-        self.summarize_list = self.summarize_list[:1000]
+    self.post_list = get_dataset_from_jsonl(train_path)
     self.tokenizer = tokenizer
     self.max_length = max_length
     self.input_ids = []
     self.attn_masks = []
-    self.text = [post + " <|tl;dr|> " for post in self.post_list]
     
   def __len__(self):
     return len(self.post_list)
 
   def __getitem__(self, idx):
-    txt = self.post_list[idx] + " <|tl;dr|> " + self.summarize_list[idx]
+    txt = self.post_list[idx]
     encodings_dict = self.tokenizer(
-        txt, truncation=True, max_length=self.max_length, padding="max_length"
+        txt, truncation=True, 
+        max_length=self.max_length, 
+        padding="max_length"
     )
     input_ids = torch.tensor(encodings_dict['input_ids'])
     attn_masks = torch.tensor(encodings_dict['attention_mask'])
