@@ -15,11 +15,11 @@ from typing import Optional, Tuple, Union
 import wandb
 wandb.init(project="gpt2-supervised-summarize-reward", entity="pvduy")
 
-class RewardOutput(ModelOutput):
+# class RewardOutput(ModelOutput):
 
-    loss: Optional[torch.FloatTensor] = None
-    r0: Optional[torch.FloatTensor] = None
-    r1: Optional[torch.FloatTensor] = None
+#     loss: Optional[torch.FloatTensor] = None
+#     r0: Optional[torch.FloatTensor] = None
+#     r1: Optional[torch.FloatTensor] = None
     
 class DataCollatorReward:
     
@@ -28,13 +28,13 @@ class DataCollatorReward:
         input_ids_1 = torch.stack([f["input_ids"][1] for f in features])
         attention_mask_0 = torch.stack([f["attention_mask"][0] for f in features])
         attention_mask_1 = torch.stack([f["attention_mask"][1] for f in features])
-        labels = [f["labels"] for f in features]
+        # labels = [f["labels"] for f in features]
         input_ids = torch.cat([input_ids_0, input_ids_1], dim=0)
         attention_mask = torch.cat([attention_mask_0, attention_mask_1], dim=0)
         batch = {}
         batch['input_ids'] = input_ids
         batch['attention_mask'] = attention_mask
-        batch['labels'] = labels
+        # batch['labels'] = labels
         return batch
         
 def set_seed(seed_val=42):
@@ -65,10 +65,11 @@ if __name__ == "__main__":
         half_precision_backend=True,
         logging_steps=30,
         gradient_accumulation_steps=8,
-        eval_steps=500,
+        eval_steps=50000,
         save_steps=2000
     )
     def compute_metrics(eval_preds):
+        import ipdb; ipdb.set_trace()
         pred_ids = eval_preds.predictions
         acc = sum(eval_preds.predictions[0] >= eval_preds.predictions[1]) / len(eval_preds.predictions[0])
         return {"accuracy": acc}

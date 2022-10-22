@@ -1545,6 +1545,13 @@ class GPT2ForTokenClassification(GPT2PreTrainedModel):
         )
 
 
+class RewardOutput(ModelOutput):
+
+    loss: Optional[torch.FloatTensor] = None
+    r0: Optional[torch.FloatTensor] = None
+    r1: Optional[torch.FloatTensor] = None
+    
+
 class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
@@ -1570,7 +1577,7 @@ class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
         )
         assert_device_map(self.device_map, len(self.transformer.h))
         self.transformer.parallelize(self.device_map)
-        self.lm_head = self.lm_head.to(self.transformer.first_device)
+        # self.lm_head = self.lm_head.to(self.transformer.first_device)
         self.reward_head = self.reward_head.to(self.transformer.first_device)
         self.model_parallel = True
 
@@ -1578,7 +1585,7 @@ class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
     def deparallelize(self):
         self.transformer.deparallelize()
         self.transformer = self.transformer.to("cpu")
-        self.lm_head = self.lm_head.to("cpu")
+        # self.lm_head = self.lm_head.to("cpu")
         self.reward_head = self.reward_head.to("cpu")
         self.model_parallel = False
         torch.cuda.empty_cache()
@@ -1669,7 +1676,9 @@ class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
         # Set device for model parallelism
         if self.model_parallel:
             torch.cuda.set_device(self.transformer.first_device)
-            hidden_states = hidden_states.to(self.lm_head.weight.device)
+            hidden_states = hidden_states.to(self.reward_head.weight.device)
+
+            
         if output_hidden_states:
             hidden_states_0 = hidden_states[:input_ids.shape[0] // 2,]
             hidden_states_1 = hidden_states[input_ids.shape[0] // 2:,]
@@ -1688,23 +1697,10 @@ class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
             r1 = r1.squeeze(-1)
             loss = torch.mean(-torch.log(torch.sigmoid(r0 - r1)))
             
-        # lm_logits = self.lm_head(hidden_states)
-        # loss = None
-        # if labels is not None:
-        #     # Shift so that tokens < n predict n
-        #     shift_logits = lm_logits[..., :-1, :].contiguous()
-        #     shift_labels = labels[..., 1:].contiguous()
-        #     # Flatten the tokens
-        #     loss_fct = CrossEntropyLoss()
-        #     loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
-
-        # if not return_dict:
-        #     output = (lm_logits,) + transformer_outputs[1:]
-        #     return ((loss,) + output) if loss is not None else output
 
         return CausalLMOutputWithCrossAttentions(
             loss=loss,
-            logits= (r0, r1),
+            logits= torch.stack([r0, r1], dim=1),
             past_key_values=transformer_outputs.past_key_values,
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,

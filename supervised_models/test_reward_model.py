@@ -50,6 +50,7 @@ class RewardModel(nn.Module):
         r1 = logits_1[torch.arange(batch_size, device=logits_1.device), sequence_lengths_1]
         r0 = r0.squeeze(-1)
         r1 = r1.squeeze(-1)
+        
         if labels is None:
             return RewardOutput(r1=r0, r2=r1)
         loss = torch.mean(-torch.log(torch.sigmoid((r0 - r1) * (1 - labels) + (r1 - r0) * labels)))

@@ -145,6 +145,8 @@ class ComparisionDataset(Dataset):
     def __init__(self, comparision_path, tokenizer, max_length=532):
         with open(comparision_path, 'r') as f:
             dataset = [json.loads(line) for line in f]
+        if 'valid' in comparision_path:
+            dataset = dataset[:100]
 
         self.tokenizer = tokenizer
         self.lst_post = []
@@ -185,6 +187,5 @@ class ComparisionDataset(Dataset):
 
         return {
             "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": choice
+            "attention_mask": attention_mask
         }
