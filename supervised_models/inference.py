@@ -1,17 +1,12 @@
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 from summarize_dataset import TLDRDataset, get_dataset_from_jsonl
 from datasets import load_metric
+import evaluate
 from tqdm import tqdm
 
-def load_model(path='../trlx/checkpoint_supervised_gpt_2'):
-    tokenizer = GPT2Tokenizer.from_pretrained(path, 
-        bos_token='<|startoftext|>',
-        eos_token='<|endoftext|>',
-        pad_token='<|pad|>'
-    )
-    tokenizer.add_special_tokens({'additional_special_tokens': ["<|tl;dr|>"]})
+def load_model(path='gpt2-sup-summ-ver2/checkpoint-10000/'):
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
     gpt2model = GPT2LMHeadModel.from_pretrained(path)
-    gpt2model.resize_token_embeddings(len(tokenizer))
     gpt2model.config.pad_token_id = tokenizer.bos_token_id
     tokenizer.pad_token_id = tokenizer.bos_token_id
     return gpt2model, tokenizer
@@ -19,41 +14,34 @@ def load_model(path='../trlx/checkpoint_supervised_gpt_2'):
 def inference(model, tokenizer):
     model.to("cuda")
     model.eval()
-    post_list, summarize_list = get_dataset_from_jsonl("../openai_data/tldr_filtered/valid.jsonl")
+    post_list, summarize_list = get_dataset_from_jsonl("../openai_data/tldr_filtered/valid.jsonl", return_summary=False)
     lst_pred = []
     lst_summarize = []
+    rouge = evaluate.load('rouge')
     count = 0
     for post, summarize in tqdm(zip(post_list, summarize_list), total=len(post_list)):
-        txt = post + " <|tl;dr|> "
-        txt = '<|startoftext|> ' + txt
-        encode_dict = tokenizer(txt, return_tensors="pt", padding=False, truncation=True, max_length=768)
-        txt_tokens = encode_dict["input_ids"]
-        attention_mask = encode_dict["attention_mask"]
-        txt_tokens = txt_tokens.to('cuda')
-        attention_mask = attention_mask.to('cuda')
-        import ipdb; ipdb.set_trace()
+        encode_dict = tokenizer(post, return_tensors="pt", padding=False, truncation=True, max_length=512)
+        txt_tokens = encode_dict["input_ids"].cuda()
+        attention_mask = encode_dict["attention_mask"].cuda()
         summ_tokens = model.generate(txt_tokens,
             attention_mask=attention_mask,
-            num_beams=5, 
-            no_repeat_ngram_size=2,
-            bos_token_id=tokenizer.bos_token_id,
-            max_length=768
+            do_sample=False,
+            num_beams=5,
+            max_length=512
         )
         pred = tokenizer.batch_decode(summ_tokens)[0]
-        pred = pred.split("<|tl;dr|>")[1].replace("<|endoftext|>", "")
+        pred = pred.split("TL;DR:")[1].replace("<|endoftext|>", "")
         lst_pred.append(pred)
         lst_summarize.append(summarize)
+        if count % 10 == 0:
+            result = rouge.compute(predictions=lst_pred, references=lst_summarize)
+            print(result)
         count += 1
-        if count == 1000:
-            break
-    rouge = load_metric("rouge")
-    rouge_output = rouge.compute(
-            predictions=lst_pred, references=lst_summarize, rouge_types=["rouge2"]
-    )["rouge2"].mid
-    print(rouge_output)
+            
+    result = rouge.compute(predictions=lst_pred, references=lst_summarize)
+    print(result)
 
 if __name__=="__main__":
     model, tokenizer = load_model()
-    
     inference(model, tokenizer)
 

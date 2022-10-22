@@ -32,14 +32,13 @@ def main():
     model = GPT2LMHeadModel.from_pretrained("gpt2-xl", use_cache=False)
     model.resize_token_embeddings(len(tokenizer))
 
-    rouge = load_metric("rouge")
     rouge = evaluate.load('rouge')
     def compute_metrics(eval_preds):
         labels_ids = eval_preds.label_ids
         pred_ids = eval_preds.predictions
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
-        result = rouge.compute(pred_str, label_str)
+        result = rouge.compute(predictions=pred_str, references=label_str)
         return result
 
     def preprocess_logits_for_metrics(logits, labels):
