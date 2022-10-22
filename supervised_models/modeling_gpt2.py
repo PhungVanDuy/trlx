@@ -1704,7 +1704,7 @@ class GPT2LMHeadRewardModel(GPT2PreTrainedModel):
 
         return CausalLMOutputWithCrossAttentions(
             loss=loss,
-            logits= None,#lm_logits,
+            logits= (r0, r1),
             past_key_values=transformer_outputs.past_key_values,
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,

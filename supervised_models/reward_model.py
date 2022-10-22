@@ -61,6 +61,7 @@ if __name__ == "__main__":
         output_dir="gpt2-reward-checkpoint-ver2", 
         evaluation_strategy="steps",
         per_device_train_batch_size=1,
+        gradient_checkpointing=True,
         half_precision_backend=True,
         logging_steps=30,
         gradient_accumulation_steps=8,
