@@ -55,6 +55,8 @@ class PPOOrchestrator(Orchestrator):
         ppo_rl_elements = []
         stats = {}
         clock = Clock()
+        self.ref_model = self.ref_model.to('cuda:2')
+        self.ref_model.eval()
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
             try:
@@ -63,7 +65,7 @@ class PPOOrchestrator(Orchestrator):
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
 
-            samples = self.rl_model.generate(**batch)
+            samples = self.rl_model.generate(**batch, sample=True, top_p=1, top_k=0)
 
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
@@ -77,14 +79,21 @@ class PPOOrchestrator(Orchestrator):
                 (query_tensors.to(samples.device), response_tensors), dim=1
             )
             with torch.no_grad():
-                logits, _, v = self.rl_model.model(all_tokens)
+                # print("calculating logprobs")
+                outputs = self.rl_model.model(all_tokens, return_dict=True)
+                logits = outputs.logits
+                v = outputs.value
+                # print("calculating logprob2")
+                
                 # TODO(dahoas): When hydra model works need to also support generation on hydra head
                 if hasattr(self.rl_model.model, "frozen_head"):
                     ref_logits = self.rl_model.model.forward_hydra(
                         all_tokens, return_dict=False
                     )
                 else:
-                    ref_logits, _, _ = self.ref_model(all_tokens.cpu())
+                    outputs = self.ref_model(all_tokens.to('cuda:2'), return_dict=True)
+                    ref_logits = outputs.logits
+                # print("done calculating logprobs")
 
             ref_logits = ref_logits.to(self.rl_model.accelerator.device)
             logprobs = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])
