@@ -20,7 +20,6 @@ if __name__ == "__main__":
     rw_tokenizer.pad_token_id = rw_tokenizer.bos_token_id # should load from checkpoint current just for testing pipeline
     rw_model.eval()
     rw_device = 'cuda:3'
-    rw_device = 'cpu'
     rw_model.to(rw_device)
     
     def reward_fn(samples: List[str]):

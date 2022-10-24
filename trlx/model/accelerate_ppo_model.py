@@ -111,9 +111,11 @@ class AcceleratePPOModel(AccelerateRLModel):
         position_ids = attention_mask.cumsum(-1) - 1
         position_ids.masked_fill_(attention_mask.eq(0), 0)
 
-        logits, _, vpred = self.model(
-            all_tokens, attention_mask, position_ids=position_ids
+        outputs = self.model(
+            all_tokens, attention_mask, position_ids=position_ids, return_dict=True
         )
+        logits = outputs.logits
+        vpred = outputs.value
         logprob = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])
 
         # only the generation part of the values/logprobs is needed

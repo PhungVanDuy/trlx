@@ -59,13 +59,14 @@ class PPOOrchestrator(Orchestrator):
         self.ref_model.eval()
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
+            print("Getting experience: ", len(ppo_rl_elements))
             try:
                 batch: PromptBatch = next(self.pipeline_iterator)
             except StopIteration:
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
 
-            samples = self.rl_model.generate(**batch, sample=True, top_p=1, top_k=0)
+            samples = self.rl_model.generate(**batch)
 
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
