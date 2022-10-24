@@ -1,5 +1,5 @@
 import os
-os.system('cp modeling_gpt2.py /fsx/home-duyphung/anaconda3/envs/py39/lib/python3.9/site-packages/transformers/models/gpt2/modeling_gpt2.py')
+os.system('cp /fsx/home-duyphung/trlx/supervised_models/modeling_gpt2.py /fsx/home-duyphung/anaconda3/envs/py39/lib/python3.9/site-packages/transformers/models/gpt2/modeling_gpt2.py')
 
 import random
 import numpy as np
@@ -84,4 +84,4 @@ if __name__ == "__main__":
         eval_dataset=dev_dataset,
         data_collator=data_collator
     )
-    trainer.train()
+    trainer.train('gpt2-reward-checkpoint-ver2/checkpoint-6000')
