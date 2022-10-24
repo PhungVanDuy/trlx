@@ -1,0 +1,53 @@
+model:
+  model_path : "checkpoint_supervised_gpt_2/"  # Name of hf model to load
+  tokenizer_path : "checkpoint_supervised_gpt_2/"  # Name of hf tokenizer to load
+  model_type : "AcceleratePPOModel"  # Name of accelerate model type to load
+  device : "cuda"  # Train device
+  num_layers_unfrozen : -1  # Number of bottom layers to freeze during training
+
+train:
+  n_ctx : 512  # Size of LM context
+  epochs : 10  # Train for max(epochs, total_steps)
+  total_steps : 80000  # Train for max(epochs, total_steps)
+  batch_size : 2  # batch size
+  grad_clip : 1.0  # gradient clipping threshold
+
+  lr_ramp_steps : 100  # learning rate warm up
+  lr_decay_steps : 0 # learning rate decay
+  weight_decay : 0  # weight decay param
+  learning_rate_init : 5.e-5  # init learning rate
+  learning_rate_target : 5.e-5  # target final learning rate
+
+  log_interval : 25  # log interval
+  checkpoint_interval : 5000  # checkpoint interval
+  eval_interval : 160  # eval interval
+
+  pipeline : "PPOPipelineSumm"  # prompt pipeline to load
+  orchestrator : "PPOOrchestrator"  # orchestrator to load
+
+  input_size : 480  # max input size
+  gen_size : 52 # max gen size
+
+  accelerate : True  # Use accelerate
+  accelerate_config_path : ""  # Path to accelerate config(for logging purposes)
+  train_data_path: "/vinai/duypv1/Summarize-LFHF/openai_data/tldr_filtered/train.jsonl"
+
+method:
+  name : 'ppoconfig'  # Name of RL method config
+  num_rollouts : 512  # Number of rollouts to collect per epoch
+  chunk_size : 2  # Number of rollouts to collect in one loop of orchestrator
+  ppo_epochs : 4  # Number of ppo epochs
+  init_kl_coef : 0.2  # init kl coefficient
+  target : 6  # target kl coefficient
+  horizon : 10000  # PPO horizon
+  gamma : 1  # PPO discount
+  lam : 0.95  # PPO lambda
+  cliprange : 0.2  # clip range
+  cliprange_value : 0.2  # clip range
+  vf_coef : 0.2  # value term weight
+  gen_kwargs :
+    max_length : 532 # LM max sample gen length
+    min_length : 532  # LM min sample gen length
+    top_k : 0.0  # top k
+    top_p : 1.0  # top p
+    do_sample : True  # sample
