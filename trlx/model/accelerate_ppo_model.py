@@ -108,12 +108,17 @@ class AcceleratePPOModel(AccelerateRLModel):
         )
 
         # for a proper positional encoding in case of left padding
-        position_ids = attention_mask.cumsum(-1) - 1
-        position_ids.masked_fill_(attention_mask.eq(0), 0)
+        # position_ids = attention_mask.cumsum(-1) - 1
+        # position_ids.masked_fill_(attention_mask.eq(0), 0)
 
+        # outputs = self.model(
+        #     all_tokens, attention_mask, position_ids=position_ids, return_dict=True
+        # )
+        
         outputs = self.model(
-            all_tokens, attention_mask, position_ids=position_ids, return_dict=True
+            all_tokens, attention_mask, return_dict=True
         )
+        
         logits = outputs.logits
         vpred = outputs.value
         logprob = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])

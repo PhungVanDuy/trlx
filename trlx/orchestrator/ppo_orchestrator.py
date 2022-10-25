@@ -52,11 +52,13 @@ class PPOOrchestrator(Orchestrator):
         """
         Takes `num_rollouts` prompts from `pipeline`, samples model, computes KL againts a reference model appends PPOElements to model's `store`
         """
+        ref_device = 'cuda:2'
         ppo_rl_elements = []
         stats = {}
         clock = Clock()
-        self.ref_model = self.ref_model.to('cuda:2')
-        self.ref_model.eval()
+        if not hasattr(self.rl_model.model, "frozen_head"):
+            self.ref_model = self.ref_model.to(ref_device)
+            self.ref_model.eval()
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
             print("Getting experience: ", len(ppo_rl_elements))
@@ -67,7 +69,6 @@ class PPOOrchestrator(Orchestrator):
                 batch = next(self.pipeline_iterator)
 
             samples = self.rl_model.generate(**batch)
-
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
             texts = self.rl_model.tokenizer.batch_decode(
@@ -92,7 +93,7 @@ class PPOOrchestrator(Orchestrator):
                         all_tokens, return_dict=False
                     )
                 else:
-                    outputs = self.ref_model(all_tokens.to('cuda:2'), return_dict=True)
+                    outputs = self.ref_model(all_tokens.to(ref_device), return_dict=True)
                     ref_logits = outputs.logits
                 # print("done calculating logprobs")
 

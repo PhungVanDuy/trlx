@@ -210,7 +210,6 @@ class AccelerateRLModel(BaseRLModel):
             total=self.total_steps, disable=not self.accelerator.is_local_main_process
         )
         self.iter_count = 0
-
         for _ in range(self.config.train.epochs):
             for batch in self.train_dataloader:
                 for _ in range(self.n_updates_per_batch):

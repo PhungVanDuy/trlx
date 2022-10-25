@@ -8,7 +8,7 @@ train:
   seq_length: 532  # Size of LM context
   epochs: 1000  # Train for max(epochs, total_steps)
   total_steps: 10000  # Train for max(epochs, total_steps)
-  batch_size: 6  # batch size
+  batch_size: 4  # batch size
 
   lr_ramp_steps: 100  # learning rate warm up
   lr_decay_steps: 79000  # learning rate decay
@@ -25,8 +25,8 @@ train:
 
 method:
   name: 'ppoconfig'  # Name of RL method config
-  num_rollouts: 512  # Number of rollouts to collect per epoch
-  chunk_size: 4  # Number of rollouts to collect in one loop of orchestrator
+  num_rollouts: 64  # Number of rollouts to collect per epoch
+  chunk_size: 8  # Number of rollouts to collect in one loop of orchestrator
   ppo_epochs: 4  # Number of ppo epochs
   init_kl_coef: 0.2  # init kl coefficient
   target: 6  # target kl coefficient, set None for fixed kl coef
