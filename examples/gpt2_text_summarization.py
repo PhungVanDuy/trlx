@@ -52,6 +52,6 @@ if __name__ == "__main__":
         "/fsx/home-duyphung/trlx/supervised_models/gpt2-sup-summ-ver2/checkpoint-10000",
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=test_openai_sum[0:1000],
+        eval_prompts=test_openai_sum[0:100],
         config=config
     )

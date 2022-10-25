@@ -80,9 +80,15 @@ class PPOOrchestrator(Orchestrator):
             all_tokens = torch.cat(
                 (query_tensors.to(samples.device), response_tensors), dim=1
             )
+            attention_mask = (
+                all_tokens.not_equal(self.rl_model.model.gpt.config.pad_token_id)
+                .long()
+                .to(all_tokens.device)
+            )
+
             with torch.no_grad():
                 # print("calculating logprobs")
-                outputs = self.rl_model.model(all_tokens, return_dict=True)
+                outputs = self.rl_model.model(all_tokens, attention_mask, return_dict=True)
                 logits = outputs.logits
                 v = outputs.value
                 # print("calculating logprob2")
@@ -93,7 +99,7 @@ class PPOOrchestrator(Orchestrator):
                         all_tokens, return_dict=False
                     )
                 else:
-                    outputs = self.ref_model(all_tokens.to(ref_device), return_dict=True)
+                    outputs = self.ref_model(all_tokens.to(ref_device), attention_mask.to(ref_device), return_dict=True)
                     ref_logits = outputs.logits
                 # print("done calculating logprobs")
 
