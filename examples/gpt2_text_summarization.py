@@ -19,7 +19,7 @@ if __name__ == "__main__":
     rw_model.config.pad_token_id = rw_tokenizer.bos_token_id
     rw_tokenizer.pad_token_id = rw_tokenizer.bos_token_id # should load from checkpoint current just for testing pipeline
     rw_model.eval()
-    rw_device = 'cuda:3'
+    rw_device = 'cuda:2'
     #rw_device = 'cpu'
     rw_model.to(rw_device)
     
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         attn_masks = attn_masks.repeat(2, 1)
         with torch.no_grad():
             scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
-        scores = scores.logits[:, 0]
+        scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
         return scores
 
     # Take few words off of movies reviews as prompts

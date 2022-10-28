@@ -3,10 +3,12 @@ from summarize_dataset import TLDRDataset, get_dataset_from_jsonl
 from datasets import load_metric
 import evaluate
 from tqdm import tqdm
+import torch
 
 def load_model(path='gpt2-sup-summ-ver2/checkpoint-10000/'):
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
     gpt2model = GPT2LMHeadModel.from_pretrained(path)
+    gpt2model.load_state_dict(torch.load("/fsx/home-duyphung/trlx/supervised_models/gpt2-sup-summ-ver2/ppo_model.bin"))
     gpt2model.config.pad_token_id = tokenizer.bos_token_id
     tokenizer.pad_token_id = tokenizer.bos_token_id
     return gpt2model, tokenizer
@@ -32,6 +34,7 @@ def inference(model, tokenizer):
         pred = tokenizer.batch_decode(summ_tokens)[0]
         pred = pred.split("TL;DR:")[1].replace("<|endoftext|>", "")
         lst_pred.append(pred)
+        import ipdb; ipdb.set_trace()
         lst_summarize.append(summarize)
         if count % 10 == 0:
             result = rouge.compute(predictions=lst_pred, references=lst_summarize)

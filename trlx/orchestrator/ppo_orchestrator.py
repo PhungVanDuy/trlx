@@ -52,7 +52,7 @@ class PPOOrchestrator(Orchestrator):
         """
         Takes `num_rollouts` prompts from `pipeline`, samples model, computes KL againts a reference model appends PPOElements to model's `store`
         """
-        ref_device = 'cuda:2'
+        ref_device = 'cuda:1'
         ppo_rl_elements = []
         stats = {}
         clock = Clock()
@@ -74,6 +74,7 @@ class PPOOrchestrator(Orchestrator):
             texts = self.rl_model.tokenizer.batch_decode(
                 samples, skip_special_tokens=True
             )
+            print("samples: ", texts)
             scores = torch.as_tensor(self.score(texts))
 
             # Precompute logprobs, values

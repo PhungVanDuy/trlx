@@ -114,7 +114,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         # outputs = self.model(
         #     all_tokens, attention_mask, position_ids=position_ids, return_dict=True
         # )
-        
+        # import ipdb; ipdb.set_trace()
         outputs = self.model(
             all_tokens, attention_mask, return_dict=True
         )
@@ -149,6 +149,7 @@ class AcceleratePPOModel(AccelerateRLModel):
             1.0 - self.config.method.cliprange,
             1.0 + self.config.method.cliprange,
         )
+        #pg_losses = pg_losses2
 
         pg_loss = torch.sum(torch.max(pg_losses, pg_losses2) * mask) / mask.sum()
         loss = pg_loss + self.config.method.vf_coef * vf_loss
