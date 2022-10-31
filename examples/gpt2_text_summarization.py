@@ -27,7 +27,7 @@ if __name__ == "__main__":
         encodings_dict = rw_tokenizer(
                 samples, 
                 truncation=True, 
-                max_length=532, 
+                max_length=550, 
                 padding="max_length"
         )
         input_ids = torch.tensor(encodings_dict['input_ids']).to(rw_device)
@@ -37,7 +37,7 @@ if __name__ == "__main__":
         attn_masks = attn_masks.repeat(2, 1)
         with torch.no_grad():
             scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
-        #scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
+        scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
 #        scores = torch.clamp(scores.logits[:, 0], -2, 2)
         return scores.logits[:, 0]
 

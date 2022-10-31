@@ -43,7 +43,6 @@ def train(
             config.model.model_path = model_path
 
         model: AcceleratePPOModel = get_model(config.model.model_type)(config)
-        import ipdb; ipdb.set_trace()
         batch_size = config.train.batch_size * int(os.environ.get("WORLD_SIZE", 1))
         prompts = prompts or [model.tokenizer.bos_token] * batch_size
 

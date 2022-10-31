@@ -2,7 +2,7 @@ model:
   model_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-sup-summ-ver2/checkpoint-10000"  # Name of hf model to load
   tokenizer_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-xl"  # Name of hf tokenizer to load
   model_type: "AcceleratePPOModel"  # Name of accelerate model type to load
-  num_layers_unfrozen: 12 # Number of bottom layers to freeze during training
+  num_layers_unfrozen: 24 # Number of bottom layers to freeze during training
 
 train:
   seq_length: 550  # Size of LM context
@@ -25,7 +25,7 @@ train:
 
 method:
   name: 'ppoconfig'  # Name of RL method config
-  num_rollouts: 2048 # Number of rollouts to collect per epoch
+  num_rollouts: 4096 # Number of rollouts to collect per epoch
   chunk_size: 16  # Number of rollouts to collect in one loop of orchestrator
   ppo_epochs: 4  # Number of ppo epochs
   init_kl_coef: 0.2  # init kl coefficient

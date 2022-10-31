@@ -21,7 +21,7 @@ def get_dataset_from_jsonl(jsonl_file, return_summary=True):
 
 class TLDRDataset(Dataset):
 
-  def __init__(self, train_path, tokenizer, max_length=512):
+  def __init__(self, train_path, tokenizer, max_length=532):
 
     self.post_list = get_dataset_from_jsonl(train_path)
     self.tokenizer = tokenizer
