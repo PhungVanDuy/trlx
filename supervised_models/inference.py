@@ -4,6 +4,8 @@ from datasets import load_metric
 import evaluate
 from tqdm import tqdm
 import torch
+import pandas as pd
+
 
 def load_model(path='gpt2-sup-summ-ver2/checkpoint-10000/'):
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
@@ -19,6 +21,7 @@ def inference(model, tokenizer):
     post_list, summarize_list = get_dataset_from_jsonl("../openai_data/tldr_filtered/valid.jsonl", return_summary=False)
     lst_pred = []
     lst_summarize = []
+    lst_post = []
     rouge = evaluate.load('rouge')
     count = 0
     for post, summarize in tqdm(zip(post_list, summarize_list), total=len(post_list)):
@@ -27,20 +30,25 @@ def inference(model, tokenizer):
         attention_mask = encode_dict["attention_mask"].cuda()
         summ_tokens = model.generate(txt_tokens,
             attention_mask=attention_mask,
-            do_sample=False,
-            num_beams=5,
-            max_length=512
+            do_sample=True,
+            top_k=0,
+            top_p=1,
+            temperature=0.1,
+            max_length=532
         )
         pred = tokenizer.batch_decode(summ_tokens)[0]
         pred = pred.split("TL;DR:")[1].replace("<|endoftext|>", "")
         lst_pred.append(pred)
-        import ipdb; ipdb.set_trace()
         lst_summarize.append(summarize)
+        lst_post.append(post)
         if count % 10 == 0:
             result = rouge.compute(predictions=lst_pred, references=lst_summarize)
             print(result)
         count += 1
-            
+        if count  == 100:
+            break
+    df = pd.DataFrame.from_dict({"pred_ppo": lst_pred, "truth": lst_summarize, "post": lst_post})
+    df.to_csv("ppo_out.csv", index=False)
     result = rouge.compute(predictions=lst_pred, references=lst_summarize)
     print(result)
 

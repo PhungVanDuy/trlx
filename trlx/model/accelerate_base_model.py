@@ -229,7 +229,11 @@ class AccelerateRLModel(BaseRLModel):
                     self.iter_count += 1
 
                     if self.iter_count % self.config.train.checkpoint_interval == 0:
-                        self.save()
+                        import os
+                        dir_temp = f"{self.iter_count}_{self.config.train.checkpoint_dir}"
+                        if not os.path.exists(dir_temp):
+                            os.makedirs(dir_temp)
+                        self.save(directory=dir_temp)
 
                     if self.iter_count % self.config.train.eval_interval == 0:
                         results = self.evaluate()
