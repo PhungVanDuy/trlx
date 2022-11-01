@@ -21,9 +21,11 @@ def get_dataset_from_jsonl(jsonl_file, return_summary=True):
 
 class TLDRDataset(Dataset):
 
-  def __init__(self, train_path, tokenizer, max_length=532):
+  def __init__(self, train_path, tokenizer, max_length=550):
 
     self.post_list = get_dataset_from_jsonl(train_path)
+    if "valid" in train_path:
+        self.post_list = self.post_list[0:2000]
     self.tokenizer = tokenizer
     self.max_length = max_length
     self.input_ids = []
@@ -52,12 +54,12 @@ class TLDRDataset(Dataset):
     
 class ComparisionDataset(Dataset):
 
-    def __init__(self, comparision_path, tokenizer, max_length=532):
+    def __init__(self, comparision_path, tokenizer, max_length=550):
         with open(comparision_path, 'r') as f:
             dataset = [json.loads(line) for line in f]
         
         if 'valid' in comparision_path:
-            dataset = dataset[:10000]
+            dataset = dataset[:10]
             
         self.tokenizer = tokenizer
         self.lst_post = []

@@ -25,10 +25,9 @@ def main():
     # Load the GPT tokenizer.
     tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
     tokenizer.pad_token = tokenizer.eos_token
-
-    train_dataset = TLDRDataset("../openai_data/tldr_filtered/train.jsonl", tokenizer, max_length=512)
-    dev_dataset = TLDRDataset("../openai_data/tldr_filtered/valid.jsonl", tokenizer, max_length=512)
-    test_dataset = TLDRDataset("../openai_data/tldr_filtered/test.jsonl", tokenizer, max_length=512)
+    train_dataset = TLDRDataset("../openai_data/tldr_filtered/train.jsonl", tokenizer, max_length=550)
+    dev_dataset = TLDRDataset("../openai_data/tldr_filtered/valid.jsonl", tokenizer, max_length=550)
+    test_dataset = TLDRDataset("../openai_data/tldr_filtered/test.jsonl", tokenizer, max_length=550)
     model = GPT2LMHeadModel.from_pretrained("gpt2-xl", use_cache=False)
     model.resize_token_embeddings(len(tokenizer))
 
@@ -49,17 +48,17 @@ def main():
         return logits.argmax(dim=-1)
 
     training_args = TrainingArguments(
-        output_dir="gpt2-sup-summ-ver2", 
+        output_dir="gpt2-supervised-summarize", 
         evaluation_strategy="steps",
         per_device_train_batch_size=1,
         gradient_checkpointing=True,
         half_precision_backend=True,
         gradient_accumulation_steps=8,
-        num_train_epochs=10,
+        num_train_epochs=5,
         warmup_steps=300,
         eval_steps=1000,
-        save_steps=5000,
-        load_best_model_at_end=True
+        save_steps=2000,
+        load_best_model_at_end=True,
     )
 
     trainer = Trainer(

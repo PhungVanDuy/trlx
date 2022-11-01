@@ -34,6 +34,7 @@ class DataCollatorReward:
         batch = {}
         batch['input_ids'] = input_ids
         batch['attention_mask'] = attention_mask
+        batch['labels'] = torch.tensor([0] * input_ids_0.shape[0] + [1] * input_ids_1.shape[0])
         # batch['labels'] = labels
         return batch
         
@@ -51,27 +52,31 @@ if __name__ == "__main__":
     train_dataset = ComparisionDataset("../openai_data/comparisons/train_comparisons.jsonl", tokenizer)
     dev_dataset = ComparisionDataset("../openai_data/comparisons/valid_comparisons.jsonl", tokenizer)
     test_dataset = ComparisionDataset("../openai_data/comparisons/test_comparisons.jsonl", tokenizer)
-    gpt2model = GPT2LMHeadModel.from_pretrained("gpt2-sup-summ-ver2/checkpoint-10000", use_cache=False)
+    gpt2model = GPT2LMHeadModel.from_pretrained("/fsx/home-duyphung/trlx/supervised_models/gpt2-supervised-summarize", use_cache=False)
     gpt2model.resize_token_embeddings(len(tokenizer))
     gpt2model.config.pad_token_id = tokenizer.bos_token_id
     tokenizer.pad_token_id = tokenizer.bos_token_id
     model = GPT2LMHeadRewardModel(gpt2model.config)
     model.get_pretrained_model(gpt2model)
     training_args = TrainingArguments(
-        output_dir="gpt2-reward-checkpoint-ver2", 
+        output_dir="gpt2-reward-model-summarize", 
         evaluation_strategy="steps",
         per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
+        eval_accumulation_steps=1,
         gradient_checkpointing=True,
         half_precision_backend=True,
         logging_steps=30,
         gradient_accumulation_steps=8,
-        eval_steps=50000,
-        save_steps=2000
+        eval_steps=1000,
+        save_steps=1000,
+        warmup_steps=300,
+        num_train_epochs=5,
+        learning_rate=1e-5
     )
+    
     def compute_metrics(eval_preds):
-        import ipdb; ipdb.set_trace()
-        pred_ids = eval_preds.predictions
-        acc = sum(eval_preds.predictions[0] >= eval_preds.predictions[1]) / len(eval_preds.predictions[0])
+        acc = sum(eval_preds.predictions[0][:, 0] >= eval_preds.predictions[0][:, 1]) / eval_preds.predictions[0].shape[0]
         return {"accuracy": acc}
 
     data_collator = DataCollatorReward()
@@ -84,4 +89,4 @@ if __name__ == "__main__":
         eval_dataset=dev_dataset,
         data_collator=data_collator
     )
-    trainer.train('gpt2-reward-checkpoint-ver2/checkpoint-6000')
+    trainer.train()
