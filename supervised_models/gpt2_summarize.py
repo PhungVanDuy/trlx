@@ -56,7 +56,7 @@ def main():
         gradient_accumulation_steps=8,
         num_train_epochs=5,
         warmup_steps=300,
-        eval_steps=1000,
+        eval_steps=200,
         save_steps=2000,
         load_best_model_at_end=True,
     )

@@ -55,7 +55,7 @@ if __name__ == "__main__":
     train_dataset = ComparisionDataset("../openai_data/comparisons/train_comparisons.jsonl", rw_tokenizer)
     dev_dataset = ComparisionDataset("../openai_data/comparisons/valid_comparisons.jsonl", rw_tokenizer)
     test_dataset = ComparisionDataset("../openai_data/comparisons/test_comparisons.jsonl", rw_tokenizer)
-    gpt2model = GPT2LMHeadRewardModel.from_pretrained('gpt2-reward-checkpoint-ver2/checkpoint-8000')
+    gpt2model = GPT2LMHeadRewardModel.from_pretrained('gpt2-reward-model-summarize/checkpoint-2000')
     gpt2model.resize_token_embeddings(len(rw_tokenizer))
     gpt2model.config.pad_token_id = rw_tokenizer.pad_token_id
     gpt2model.config.pad_token_id = rw_tokenizer.bos_token_id

@@ -68,7 +68,7 @@ if __name__ == "__main__":
         half_precision_backend=True,
         logging_steps=30,
         gradient_accumulation_steps=8,
-        eval_steps=1000,
+        eval_steps=10,
         save_steps=1000,
         warmup_steps=300,
         num_train_epochs=5,
@@ -90,3 +90,4 @@ if __name__ == "__main__":
         data_collator=data_collator
     )
     trainer.train()
+    #trainer.train("gpt2-reward-model-summarize/checkpoint-1000")
