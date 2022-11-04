@@ -1,12 +1,12 @@
 model:
-  model_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-sup-summ-ver2/checkpoint-10000"  # Name of hf model to load
+  model_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-supervised-summarize"  # Name of hf model to load
   tokenizer_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-xl"  # Name of hf tokenizer to load
   model_type: "AcceleratePPOModel"  # Name of accelerate model type to load
   num_layers_unfrozen: 24 # Number of bottom layers to freeze during training
 
 train:
   seq_length: 550  # Size of LM context
-  epochs: 10  # Train for max(epochs, total_steps)
+  epochs: 20  # Train for max(epochs, total_steps)
   total_steps: 10000  # Train for max(epochs, total_steps)
   batch_size: 1  # batch size
 
@@ -25,14 +25,14 @@ train:
 
 method:
   name: 'ppoconfig'  # Name of RL method config
-  num_rollouts: 512 # Number of rollouts to collect per epoch
+  num_rollouts: 256 # Number of rollouts to collect per epoch
   chunk_size: 16  # Number of rollouts to collect in one loop of orchestrator
-  ppo_epochs: 5  # Number of ppo epochs
-  init_kl_coef: 0.2  # init kl coefficient
-  target: 0.05  # target kl coefficient, set None for fixed kl coef
+  ppo_epochs: 10  # Number of ppo epochs
+  init_kl_coef: 0.01  # init kl coefficient
+  target: 0.01  # target kl coefficient, set None for fixed kl coef
   horizon: 5000  # PPO horizon
-  gamma: 1 # PPO discount
-  lam: 0.95  # PPO lambda
+  gamma: 0.99 # PPO discount
+  lam: 0.97  # PPO lambda
   cliprange: 0.2  # clip range
   cliprange_value: 0.2  # clip range
   vf_coef: 0.5  # value term weight
@@ -42,4 +42,4 @@ method:
     top_k: 0.0  # top k
     top_p: 1.0  # top p
     do_sample: True  # sample
-    temperature: 0.1
+    temperature: 0.01

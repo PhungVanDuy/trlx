@@ -59,6 +59,7 @@ class PPOOrchestrator(Orchestrator):
         if not hasattr(self.rl_model.model, "frozen_head"):
             self.ref_model = self.ref_model.to(ref_device)
             self.ref_model.eval()
+        fp = open("samples_traj.txt", "w")
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
             print("Getting experience: ", len(ppo_rl_elements))
@@ -68,13 +69,14 @@ class PPOOrchestrator(Orchestrator):
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
 
-            samples = self.rl_model.generate(**batch, top_k=0, top_p=1, do_sample=True, temperature=0.1)
+            samples = self.rl_model.generate(**batch, top_k=0, top_p=1, do_sample=True, temperature=0.01)
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
             texts = self.rl_model.tokenizer.batch_decode(
                 samples, skip_special_tokens=True
             )
-            print("samples: ", texts)
+            for text in texts:
+                fp.write(text + "\n")
             scores = torch.as_tensor(self.score(texts))
 
             # Precompute logprobs, values
@@ -126,6 +128,7 @@ class PPOOrchestrator(Orchestrator):
             all_logprobs = all_logprobs.cpu()
             all_values = all_values.cpu()
             all_rewards = all_rewards.cpu()
+            fp.write("Average reward: " + str(all_rewards.mean()) + "\n")
 
             exp_time = clock.tick()
 
@@ -146,3 +149,4 @@ class PPOOrchestrator(Orchestrator):
 
         # Push samples and rewards to model's rollout storage
         self.rl_model.push_to_store(ppo_rl_elements)
+        fp.close()
