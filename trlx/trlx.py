@@ -48,7 +48,12 @@ def train(
 
         if eval_prompts is None:
             eval_prompts = prompts[:batch_size]
-
+        if 1:
+            import torch
+            model.model.load_state_dict(torch.load("./5000_ckpts/pytorch_model.bin"))
+            torch.save(model.model.gpt.state_dict(), 'supervised_models/gpt2-supervised-summarize/ppo_model.bin')
+            exit()
+        
         pipeline = PromptPipeline(prompts, model.tokenizer)
         orch: PPOOrchestrator = get_orchestrator(config.train.orchestrator)(
             model, pipeline, reward_fn=reward_fn, chunk_size=config.method.chunk_size

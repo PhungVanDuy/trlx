@@ -37,10 +37,10 @@ if __name__ == "__main__":
         attn_masks = attn_masks.repeat(2, 1)
         with torch.no_grad():
             scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
-        scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
-        scores -= 0.21
+#        scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
+#        scores -= 0.21
 #        scores = torch.clamp(scores.logits[:, 0], -2, 2)
-        return scores#scores.logits[:, 0]
+        return scores.logits[:, 0]
 
     # # Take few words off of movies reviews as prompts
     # train_openai_summ, _ = get_dataset_from_jsonl("/fsx/home-duyphung/trlx/openai_data/tldr_filtered/train.jsonl", False)
