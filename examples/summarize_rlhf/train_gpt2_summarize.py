@@ -5,7 +5,7 @@ from datasets import load_metric
 import evaluate
 import os
 import wandb
-wandb.init(project="gpt2-supervised-summarize-ver2", entity="pvduy")
+wandb.init(project="gpt2-supervised-summarize", entity="pvduy")
 from summarize_dataset import TLDRDataset
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 
