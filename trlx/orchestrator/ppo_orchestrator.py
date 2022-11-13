@@ -9,7 +9,7 @@ from trlx.orchestrator import Orchestrator, register_orchestrator
 from trlx.pipeline import BasePipeline
 from trlx.utils import Clock
 from trlx.utils.modeling import logprobs_from_logits
-
+import wandb
 
 @register_orchestrator
 class PPOOrchestrator(Orchestrator):
@@ -52,11 +52,16 @@ class PPOOrchestrator(Orchestrator):
         """
         Takes `num_rollouts` prompts from `pipeline`, samples model, computes KL againts a reference model appends PPOElements to model's `store`
         """
+        ref_device = 'cuda:1'
+        if not hasattr(self.rl_model.model, "frozen_head"):
+            self.ref_model = self.ref_model.to(ref_device)
+            self.ref_model.eval()
         ppo_rl_elements = []
         stats = {}
         clock = Clock()
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
+            print("Getting experience: ", len(ppo_rl_elements))
             try:
                 batch: PromptBatch = next(self.pipeline_iterator)
             except StopIteration:
@@ -71,20 +76,29 @@ class PPOOrchestrator(Orchestrator):
                 samples, skip_special_tokens=True
             )
             scores = torch.as_tensor(self.score(texts))
-
+            wandb.log({"Average reward": scores.mean().item()})
             # Precompute logprobs, values
             all_tokens = torch.cat(
                 (query_tensors.to(samples.device), response_tensors), dim=1
             )
+            attention_mask = (
+                all_tokens.not_equal(self.rl_model.model.gpt.config.pad_token_id)
+                .long()
+                .to(all_tokens.device)
+            )
             with torch.no_grad():
-                logits, _, v = self.rl_model.model(all_tokens)
+                outputs = self.rl_model.model(all_tokens, attention_mask, return_dict=True)
+                logits = outputs.logits
+                v = outputs.value
                 # TODO(dahoas): When hydra model works need to also support generation on hydra head
                 if hasattr(self.rl_model.model, "frozen_head"):
                     ref_logits = self.rl_model.model.forward_hydra(
                         all_tokens, return_dict=False
                     )
                 else:
-                    ref_logits, _, _ = self.ref_model(all_tokens.cpu())
+                    outputs = self.ref_model(all_tokens.to(ref_device), attention_mask.to(ref_device), return_dict=True)
+                    ref_logits = outputs.logits
+                    #ref_logits, _, _ = self.ref_model(all_tokens.cpu())
 
             ref_logits = ref_logits.to(self.rl_model.accelerator.device)
             logprobs = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])

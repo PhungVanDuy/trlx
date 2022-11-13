@@ -100,6 +100,7 @@ class AcceleratePPOModel(AccelerateRLModel):
             returns=returns,
             mask=mask,
         )
+        wandb.log({"loss": loss})
         self.approx_kl = stats["policy/approx_kl"]  # Update kl controller stats
         return loss, stats
 

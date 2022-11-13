@@ -45,7 +45,7 @@ class AccelerateRLModel(BaseRLModel):
             self.tokenizer.padding_side = "left"
         else:
             self.tokenizer = None
-
+        self.model.gpt.config.pad_token_id = self.tokenizer.eos_token_id
         if hasattr(self.model.gpt, "gpt_neox"):
             gpt_blocks = self.model.gpt.gpt_neox.layers
         else:
