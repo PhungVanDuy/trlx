@@ -31,7 +31,8 @@ if __name__ == "__main__":
     rw_model.config.pad_token_id = rw_tokenizer.bos_token_id
     rw_tokenizer.pad_token_id = rw_tokenizer.bos_token_id
     rw_model.eval()
-    rw_model.to(f"cuda:{args.cuda_device}")
+    rw_device = torch.device("cuda:{}".format(args.cuda_device))
+    rw_model.to(rw_device)
     
     def reward_fn(samples: List[str]):
         original_samples = [text.split('TL;DR:')[0] + 'TL;DR: ' for text in samples]
