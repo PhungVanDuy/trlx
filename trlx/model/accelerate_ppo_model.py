@@ -14,7 +14,7 @@ from trlx.model.nn.ppo_models import (
 )
 from trlx.pipeline.ppo_pipeline import PPORolloutStorage
 from trlx.utils.modeling import logprobs_from_logits
-
+import wandb
 
 @register_model
 class AcceleratePPOModel(AccelerateRLModel):
@@ -80,9 +80,14 @@ class AcceleratePPOModel(AccelerateRLModel):
         tokens, attention_mask, position_ids = self.get_model_inputs(
             query_tensors, response_tensors
         )
-        logits, _, values_pred = self.model(
-            tokens, attention_mask, position_ids=position_ids
+        
+        outputs = self.model(
+            tokens, attention_mask, position_ids=position_ids, return_dict=True
         )
+        
+        logits = outputs.logits
+        values_pred = outputs.value
+        
         logprobs = logprobs_from_logits(logits[:, :-1, :], tokens[:, 1:])
         # Only the response part of the values/logprobs is needed
         logprobs, values_pred, mask = (
