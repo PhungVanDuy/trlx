@@ -56,6 +56,7 @@ class PPOOrchestrator(Orchestrator):
         if not hasattr(self.rl_model.model, "frozen_head"):
             self.ref_model = self.ref_model.to(ref_device)
             self.ref_model.eval()
+        fp = open("samples_traj.txt", "a")
         ppo_rl_elements = []
         stats = {}
         clock = Clock()
@@ -68,13 +69,17 @@ class PPOOrchestrator(Orchestrator):
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
 
-            samples = self.rl_model.generate(**batch)
+            samples = self.rl_model.generate(**batch, top_k=0, top_p=1, do_sample=True, max_length=550, temperature=1)
 
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
             texts = self.rl_model.tokenizer.batch_decode(
                 samples, skip_special_tokens=True
             )
+            texts = [text.strip() for text in texts]
+            # print(texts)
+            for text in texts:
+                fp.write(text + "\n")
             scores = torch.as_tensor(self.score(texts))
             wandb.log({"Average reward": scores.mean().item()})
             # Precompute logprobs, values

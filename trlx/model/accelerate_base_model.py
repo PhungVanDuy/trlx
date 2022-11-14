@@ -211,7 +211,8 @@ class AccelerateRLModel(BaseRLModel):
         """
 
         self.prepare_learning()
-
+        self.accelerator.gradient_accumulation_steps = 8
+        
         tbar = tqdm(
             total=self.total_steps, disable=not self.accelerator.is_local_main_process
         )

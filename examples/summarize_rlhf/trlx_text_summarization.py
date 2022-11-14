@@ -9,6 +9,7 @@ import trlx
 from trlx.data.configs import TRLConfig
 import argparse
 import os
+import wandb
 
 
 if __name__ == "__main__":
@@ -65,6 +66,7 @@ if __name__ == "__main__":
         attn_masks = attn_masks.repeat(2, 1)
         with torch.no_grad():
             scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
+        wandb.log({'Raw Reward': scores.logits[:, 0].mean().item()})
         return scores.logits[:, 0] - scores_ref.logits[:, 0] # normalize by truth score
 
     train_openai_summ, train_labels = get_dataset_from_jsonl(os.path.join(args.dataset_dir, "train.jsonl"), False)
