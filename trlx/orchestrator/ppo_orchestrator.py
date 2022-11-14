@@ -69,29 +69,34 @@ class PPOOrchestrator(Orchestrator):
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
 
-            samples = self.rl_model.generate(**batch, max_length=550)#, top_k=0, top_p=1, do_sample=True, max_length=550, temperature=1)
+            samples = self.rl_model.generate(**batch, max_length=550, no_repeat_ngram_size=3)#, top_k=0, top_p=1, do_sample=True, max_length=550, temperature=1)
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
             texts = self.rl_model.tokenizer.batch_decode(
                 samples, skip_special_tokens=True
             )
             texts = [text.strip() for text in texts]
+            #texts = [text.replace("~", "") for text in texts]
             # print(texts)
             for text in texts:
                 fp.write(text + "\n")
             scores = torch.as_tensor(self.score(texts))
             wandb.log({"Average reward": scores.mean().item()})
             # Precompute logprobs, values
-            all_tokens = torch.cat(
-                (query_tensors.to(samples.device), response_tensors), dim=1
+            # all_tokens = torch.cat(
+            #     (query_tensors.to(samples.device), response_tensors), dim=1
+            # )
+            # attention_mask = (
+            #     all_tokens.not_equal(self.rl_model.model.gpt.config.pad_token_id)
+            #     .long()
+            #     .to(all_tokens.device)
+            # )
+            all_tokens, attention_mask, position_ids = self.rl_model.get_model_inputs(
+                query_tensors, response_tensors
             )
-            attention_mask = (
-                all_tokens.not_equal(self.rl_model.model.gpt.config.pad_token_id)
-                .long()
-                .to(all_tokens.device)
-            )
+        
             with torch.no_grad():
-                outputs = self.rl_model.model(all_tokens, attention_mask, return_dict=True)
+                outputs = self.rl_model.model(all_tokens, attention_mask, position_ids=position_ids, return_dict=True)
                 logits = outputs.logits
                 v = outputs.value
                 # TODO(dahoas): When hydra model works need to also support generation on hydra head
@@ -100,7 +105,8 @@ class PPOOrchestrator(Orchestrator):
                         all_tokens, return_dict=False
                     )
                 else:
-                    outputs = self.ref_model(all_tokens.to(ref_device), attention_mask.to(ref_device), return_dict=True)
+                    outputs = self.ref_model(all_tokens.to(ref_device), attention_mask.to(ref_device), position_ids=position_ids.to(ref_device), return_dict=True)
+                    #outputs = self.ref_model(all_tokens.to(ref_device), attention_mask.to(ref_device), return_dict=True)
                     ref_logits = outputs.logits
                     #ref_logits, _, _ = self.ref_model(all_tokens.cpu())
 
