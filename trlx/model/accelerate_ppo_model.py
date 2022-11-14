@@ -82,7 +82,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         )
         
         outputs = self.model(
-            tokens, attention_mask, position_ids=position_ids, return_dict=True
+            tokens, attention_mask, return_dict=True
         )
         
         logits = outputs.logits

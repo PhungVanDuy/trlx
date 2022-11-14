@@ -2,7 +2,7 @@ model:
   model_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-supervised-summarize"  # Name of hf model to load
   tokenizer_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-xl"  # Name of hf tokenizer to load
   model_type: "AcceleratePPOModel"  # Name of accelerate model type to load
-  num_layers_unfrozen: -1 # Number of bottom layers to freeze during training
+  num_layers_unfrozen: -1 #-1 # Number of bottom layers to freeze during training
 
 train:
   seq_length: 550  # Size of LM context
@@ -16,7 +16,7 @@ train:
   opt_eps: 1.0e-8 
   opt_betas: [0.9, 0.95] # adam betas
 
-  checkpoint_interval: 2000  # checkpoint interval
+  checkpoint_interval: 1000  # checkpoint interval
   eval_interval: 200000  # eval interval
 
   pipeline: "PPOPipeline"  # prompt pipeline to load
@@ -24,7 +24,7 @@ train:
 
 method:
   name: 'ppoconfig'  # Name of RL method config
-  num_rollouts: 128 # Number of rollouts to collect per epoch
+  num_rollouts: 64 # Number of rollouts to collect per epoch
   chunk_size: 16  # Number of rollouts to collect in one loop of orchestrator
   ppo_epochs: 4  # Number of ppo epochs
   init_kl_coef: 0.05  # init kl coefficient
