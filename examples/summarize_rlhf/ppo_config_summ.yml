@@ -24,7 +24,7 @@ train:
 
 method:
   name: 'ppoconfig'  # Name of RL method config
-  num_rollouts: 512 # Number of rollouts to collect per epoch
+  num_rollouts: 128 # Number of rollouts to collect per epoch
   chunk_size: 16  # Number of rollouts to collect in one loop of orchestrator
   ppo_epochs: 4  # Number of ppo epochs
   init_kl_coef: 0.05  # init kl coefficient
