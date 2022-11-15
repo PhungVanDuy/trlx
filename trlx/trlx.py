@@ -50,7 +50,8 @@ def train(
             eval_prompts = prompts[:batch_size]
         if 1:
             import torch
-            model.model.load_state_dict(torch.load("./5000_ckpts/pytorch_model.bin"))
+            model.model.load_state_dict(torch.load("./4000_ckpts/pytorch_model.bin"))
+            #model.model.load_state_dict(torch.load("./best_ppo_checkpoint//pytorch_model.bin"))
             torch.save(model.model.gpt.state_dict(), 'supervised_models/gpt2-supervised-summarize/ppo_model.bin')
             exit()
         

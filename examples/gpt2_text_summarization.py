@@ -24,6 +24,23 @@ if __name__ == "__main__":
     rw_model.to(rw_device)
     
     def reward_fn(samples: List[str]):
+        original_samples = [text.split('TL;DR:')[0] + 'TL;DR: ' for text in samples]
+        original_samples = [text + train_post_summ[text] for text in original_samples]
+        
+        encodings_dict = rw_tokenizer(
+                original_samples, 
+                truncation=True, 
+                max_length=550, 
+                padding="max_length"
+        )
+        input_ids = torch.tensor(encodings_dict['input_ids']).to(rw_device)
+        attn_masks = torch.tensor(encodings_dict['attention_mask']).to(rw_device)
+        # duplicate ids and masks
+        input_ids = input_ids.repeat(2, 1)
+        attn_masks = attn_masks.repeat(2, 1)
+        with torch.no_grad():
+            scores_ref = rw_model(input_ids=input_ids, attention_mask=attn_masks)
+        
         encodings_dict = rw_tokenizer(
                 samples, 
                 truncation=True, 
@@ -40,7 +57,7 @@ if __name__ == "__main__":
 #        scores = torch.nn.functional.normalize(scores.logits[:, 0], dim=0)
 #        scores -= 0.21
 #        scores = torch.clamp(scores.logits[:, 0], -2, 2)
-        return scores.logits[:, 0]
+        return scores.logits[:, 0] - scores_ref.logits[:, 0]
 
     # # Take few words off of movies reviews as prompts
     # train_openai_summ, _ = get_dataset_from_jsonl("/fsx/home-duyphung/trlx/openai_data/tldr_filtered/train.jsonl", False)
@@ -50,6 +67,11 @@ if __name__ == "__main__":
     train_openai_summ, train_labels = get_dataset_from_jsonl("/fsx/home-duyphung/trlx/openai_data/tldr_filtered/train.jsonl", False)
     val_openai_summ, val_labels = get_dataset_from_jsonl("/fsx/home-duyphung/trlx/openai_data/tldr_filtered/valid.jsonl", False)
     test_openai_sum, test_labels = get_dataset_from_jsonl("/fsx/home-duyphung/trlx/openai_data/tldr_filtered/test.jsonl", False)
+    
+    train_post_summ = {}
+    for i in range(len(train_openai_summ)):
+        tmp = rw_tokenizer.decode(rw_tokenizer(train_openai_summ[i])['input_ids'])
+        train_post_summ[tmp] = train_labels[i]
     
     # total = []
     # batch_size = 16

@@ -205,7 +205,7 @@ class AccelerateRLModel(BaseRLModel):
         """
         Samples batches from `self.store`, updates model and periodically evaluates it on `self.eval_dataloader`
         """
-
+        self.accelerator.gradient_accumulation_steps = 16
         self.prepare_learning()
 
         tbar = tqdm(
@@ -215,37 +215,38 @@ class AccelerateRLModel(BaseRLModel):
         for _ in range(self.config.train.epochs):
             for batch in self.train_dataloader:
                 for _ in range(self.n_updates_per_batch):
-                    forward_time = time()
-                    loss, stats = self.loss(batch)
-                    forward_time = time() - forward_time
+                    with self.accelerator.accumulate(self):
+                        forward_time = time()
+                        loss, stats = self.loss(batch)
+                        forward_time = time() - forward_time
 
-                    backward_time = time()
-                    self.accelerator.backward(loss)
-                    backward_time = time() - backward_time
+                        backward_time = time()
+                        self.accelerator.backward(loss)
+                        backward_time = time() - backward_time
 
-                    self.opt.step()
-                    self.opt.zero_grad()
-                    self.scheduler.step()
-                    self.iter_count += 1
+                        self.opt.step()
+                        self.opt.zero_grad()
+                        self.scheduler.step()
+                        self.iter_count += 1
 
-                    if self.iter_count % self.config.train.checkpoint_interval == 0:
-                        import os
-                        dir_temp = f"{self.iter_count}_{self.config.train.checkpoint_dir}"
-                        if not os.path.exists(dir_temp):
-                            os.makedirs(dir_temp)
-                        self.save(directory=dir_temp)
+                        if self.iter_count % self.config.train.checkpoint_interval == 0:
+                            import os
+                            dir_temp = f"{self.iter_count}_{self.config.train.checkpoint_dir}"
+                            if not os.path.exists(dir_temp):
+                                os.makedirs(dir_temp)
+                            self.save(directory=dir_temp)
 
-                    if self.iter_count % self.config.train.eval_interval == 0:
-                        results = self.evaluate()
+                        if self.iter_count % self.config.train.eval_interval == 0:
+                            results = self.evaluate()
 
-                        results.update(stats)
-                        results.update(
-                            {
-                                "forward_time": forward_time,
-                                "backward_time": backward_time,
-                            }
-                        )
-                        self.accelerator.log(results)
+                            results.update(stats)
+                            results.update(
+                                {
+                                    "forward_time": forward_time,
+                                    "backward_time": backward_time,
+                                }
+                            )
+                            self.accelerator.log(results)
 
                     desc = ", ".join(f"{k}: {v:.2f}" for k, v in stats.items())
                     tbar.set_description(desc)
@@ -254,7 +255,6 @@ class AccelerateRLModel(BaseRLModel):
                     if self.iter_count >= self.total_steps:
                         self.save()
                         return self.evaluate()
-
                 self.post_backward_callback()
 
             self.post_epoch_callback()

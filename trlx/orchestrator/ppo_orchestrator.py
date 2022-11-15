@@ -9,7 +9,7 @@ from trlx.orchestrator import Orchestrator, register_orchestrator
 from trlx.pipeline import BasePipeline
 from trlx.utils import Clock
 from trlx.utils.modeling import logprobs_from_logits
-
+import wandb
 
 @register_orchestrator
 class PPOOrchestrator(Orchestrator):
@@ -59,7 +59,7 @@ class PPOOrchestrator(Orchestrator):
         if not hasattr(self.rl_model.model, "frozen_head"):
             self.ref_model = self.ref_model.to(ref_device)
             self.ref_model.eval()
-        fp = open("samples_traj.txt", "w")
+        fp = open("samples_traj.txt", "a")
         while len(ppo_rl_elements) < num_rollouts:
             # Get next batch in prompt dataset and refresh if exhausted
             print("Getting experience: ", len(ppo_rl_elements))
@@ -68,17 +68,20 @@ class PPOOrchestrator(Orchestrator):
             except StopIteration:
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
-
-            samples = self.rl_model.generate(**batch, top_k=0, top_p=1, do_sample=True, temperature=0.01)
+            
+            samples = self.rl_model.generate(**batch, max_length=550)#  top_k=0, top_p=1, do_sample=True, max_length=550, temperature=1)
+            #penalty_alpha=0.6, top_k=6, max_length=550)#
             query_tensors = batch.input_ids
             response_tensors = samples[:, query_tensors.shape[1] :]
             texts = self.rl_model.tokenizer.batch_decode(
                 samples, skip_special_tokens=True
             )
+            texts = [text.strip() for text in texts]
+            # print(texts)
             for text in texts:
                 fp.write(text + "\n")
             scores = torch.as_tensor(self.score(texts))
-
+            wandb.log({"Average reward": scores.mean().item()})
             # Precompute logprobs, values
             all_tokens = torch.cat(
                 (query_tensors.to(samples.device), response_tensors), dim=1
@@ -149,4 +152,6 @@ class PPOOrchestrator(Orchestrator):
 
         # Push samples and rewards to model's rollout storage
         self.rl_model.push_to_store(ppo_rl_elements)
+        fp.write("=====================================================================")
         fp.close()
+        
