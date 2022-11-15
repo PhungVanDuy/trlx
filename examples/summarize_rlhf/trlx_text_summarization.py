@@ -66,8 +66,12 @@ if __name__ == "__main__":
         attn_masks = attn_masks.repeat(2, 1)
         with torch.no_grad():
             scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
-        wandb.log({'Raw Reward': scores.logits[:, 0].mean().item()})
-        return scores.logits[:, 0] - scores_ref.logits[:, 0] # normalize by truth score
+        wandb.log({'Train Raw Reward': scores.logits[:, 0].mean().item()})
+        wandb.log({'Train Ref Reward': scores_ref.logits[:, 0].mean().item()})
+        scores = scores.logits[:, 0] #- scores_ref.logits[:, 0] # normalize by truth score
+        norms_scores = scores #- scores_ref.logits[:, 0].mean()
+        wandb.log({'Train Norm Reward': norms_scores.mean().item()})
+        return norms_scores#torch.nn.functional.normalize(scores, dim=0)
 
     train_openai_summ, train_labels = get_dataset_from_jsonl(os.path.join(args.dataset_dir, "train.jsonl"), False)
     val_openai_summ, val_labels = get_dataset_from_jsonl(os.path.join(args.dataset_dir, "valid.jsonl"), False)
@@ -77,15 +81,19 @@ if __name__ == "__main__":
     for i in range(len(train_openai_summ)):
         tmp = rw_tokenizer.decode(rw_tokenizer(train_openai_summ[i])['input_ids'])
         train_post_summ[tmp] = train_labels[i]
+    
+    for i in range(len(val_openai_summ)):
+        tmp = rw_tokenizer.decode(rw_tokenizer(val_openai_summ[i])['input_ids'])
+        train_post_summ[tmp] = val_labels[i]
 
     
-    prompts = train_openai_summ # + val_openai_summ
+    prompts = train_openai_summ #+ val_openai_summ
 
     config = TRLConfig.load_yaml("ppo_config_summ.yml")
     model = trlx.train(
         config.model.model_path,
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=test_openai_sum[0:100],
+        eval_prompts=val_openai_summ[0:50],
         config=config
     )

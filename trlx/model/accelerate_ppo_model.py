@@ -77,13 +77,16 @@ class AcceleratePPOModel(AccelerateRLModel):
             old_values, old_rewards, response_length
         )
 
-        tokens, attention_mask, position_ids = self.get_model_inputs(
-            query_tensors, response_tensors
-        )
+        # tokens, attention_mask, position_ids = self.get_model_inputs(
+        #     query_tensors, response_tensors
+        # )
+        tokens = torch.cat((query_tensors, response_tensors), dim=1)
+        attention_mask = (tokens.not_equal(self.tokenizer.pad_token_id).long().to(tokens.device))
         
         outputs = self.model(
-            tokens, attention_mask, position_ids=position_ids, return_dict=True
+            tokens, attention_mask, return_dict=True
         )
+    
         
         logits = outputs.logits
         values_pred = outputs.value

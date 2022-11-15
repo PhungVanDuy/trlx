@@ -149,7 +149,7 @@ class AccelerateRLModel(BaseRLModel):
 
             if isinstance(samples, tuple):
                 samples, *_ = samples
-
+            
             pad_token = self.tokenizer.eos_token_id if self.tokenizer else 0
             all_samples.append(
                 F.pad(
@@ -171,7 +171,6 @@ class AccelerateRLModel(BaseRLModel):
             else:
                 columns_data = [samples.tolist()]
             columns = ["samples"]
-            import ipdb; ipdb.set_trace()
             # in online setting, compute the reward for validation
             if self.reward_fn:
                 rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
@@ -201,7 +200,7 @@ class AccelerateRLModel(BaseRLModel):
             rows = list(zip(*columns_data))
             stats["samples"] = wandb.Table(columns=columns, rows=rows)
 
-            print(rows[0])
+            #print(rows[0])
 
         return stats
 

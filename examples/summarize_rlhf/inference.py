@@ -31,10 +31,10 @@ def inference(model, tokenizer):
         attention_mask = encode_dict["attention_mask"].cuda()
         summ_tokens = model.generate(txt_tokens,
             attention_mask=attention_mask,
-            do_sample=True,
-            top_k=0,
-            top_p=0.9,
-            temperature=1,
+            temperature=0.7,
+            #top_k=0,
+            #top_p=1,
+            #temperature=0.01,
             max_length=550
         )
         pred = tokenizer.batch_decode(summ_tokens)[0]
