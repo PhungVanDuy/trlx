@@ -141,7 +141,7 @@ class AccelerateRLModel(BaseRLModel):
         stats = {}
         all_samples = []
         generate_time = time()
-        for prompts in self.eval_dataloader:
+        for prompts in tqdm(self.eval_dataloader):
             if isinstance(prompts, torch.Tensor):
                 samples = self.generate(prompts)
             else:
@@ -171,7 +171,7 @@ class AccelerateRLModel(BaseRLModel):
             else:
                 columns_data = [samples.tolist()]
             columns = ["samples"]
-
+            import ipdb; ipdb.set_trace()
             # in online setting, compute the reward for validation
             if self.reward_fn:
                 rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
@@ -245,6 +245,7 @@ class AccelerateRLModel(BaseRLModel):
                     #     self.save()
 
                     if self.iter_count % self.config.train.eval_interval == 0:
+                        print("Evaluating...")
                         results = self.evaluate()
 
                         results.update(stats)
