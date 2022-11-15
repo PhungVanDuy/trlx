@@ -2,7 +2,7 @@ model:
   model_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-supervised-summarize"  # Name of hf model to load
   tokenizer_path: "/fsx/home-duyphung/trlx/supervised_models/gpt2-xl"  # Name of hf tokenizer to load
   model_type: "AcceleratePPOModel"  # Name of accelerate model type to load
-  num_layers_unfrozen: -1 #-1 # Number of bottom layers to freeze during training
+  num_layers_unfrozen: 2 #-1 # Number of bottom layers to freeze during training
 
 train:
   seq_length: 550  # Size of LM context
@@ -34,7 +34,7 @@ method:
   lam: 0.95  # PPO lambda
   cliprange: 0.2  # clip range
   cliprange_value: 0.2  # clip range
-  vf_coef: 0.15  # value term weight
+  vf_coef: 0.2  # value term weight
   gen_kwargs:
     max_length: 550  # LM max sample gen length
     min_length: 550  # LM min sample gen length

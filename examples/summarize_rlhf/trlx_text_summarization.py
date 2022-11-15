@@ -94,6 +94,6 @@ if __name__ == "__main__":
         config.model.model_path,
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=val_openai_summ[0:50],
+        eval_prompts=val_openai_summ[0:16],
         config=config
     )
