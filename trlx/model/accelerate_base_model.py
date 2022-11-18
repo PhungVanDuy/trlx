@@ -114,6 +114,7 @@ class AccelerateRLModel(BaseRLModel):
             attention_mask = attention_mask.to(self.accelerator.device)
 
         kwargs = dict(self.generate_kwargs, **kwargs)
+        
 
         with torch.no_grad():
             return self.accelerator.unwrap_model(self.model).generate(
@@ -173,7 +174,12 @@ class AccelerateRLModel(BaseRLModel):
             columns = ["samples"]
             # in online setting, compute the reward for validation
             if self.reward_fn:
-                rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
+                rewards = []
+                batch_size = 16
+                for i in range(0, len(samples), batch_size):
+                    sub_samples = samples[i : i + batch_size]
+                    rewards.append(torch.as_tensor(self.reward_fn(sub_samples), dtype=torch.float))
+                rewards = torch.cat(rewards)
                 mean_reward = rewards.mean()
                 columns.append("reward")
                 columns_data.append(rewards)

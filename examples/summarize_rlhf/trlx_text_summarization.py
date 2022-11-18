@@ -36,6 +36,13 @@ if __name__ == "__main__":
     rw_model.to(rw_device)
     
     def reward_fn(samples: List[str]):
+        def normalize(scores, target_scores):
+            tgt_mean, tgt_std = target_scores.mean(), target_scores.std()
+            pred_mean, pred_std = scores.mean(), scores.std()
+            gain = tgt_std / pred_std
+            bias = tgt_mean - pred_mean * gain 
+            return scores * gain + bias
+        
         original_samples = [text.split('TL;DR:')[0] + 'TL;DR: ' for text in samples]
         original_samples = [text + train_post_summ[text] for text in original_samples]
         
@@ -69,7 +76,7 @@ if __name__ == "__main__":
         wandb.log({'Train Raw Reward': scores.logits[:, 0].mean().item()})
         wandb.log({'Train Ref Reward': scores_ref.logits[:, 0].mean().item()})
         scores = scores.logits[:, 0] #- scores_ref.logits[:, 0] # normalize by truth score
-        norms_scores = scores #- scores_ref.logits[:, 0].mean()
+        norms_scores = scores#normalize(scores.logits[:, 0],  scores_ref.logits[:, 0])#torch.nn.functional.normalize(scores, dim=0) #- scores_ref.logits[:, 0].mean()
         wandb.log({'Train Norm Reward': norms_scores.mean().item()})
         return norms_scores#torch.nn.functional.normalize(scores, dim=0)
 
@@ -86,14 +93,22 @@ if __name__ == "__main__":
         tmp = rw_tokenizer.decode(rw_tokenizer(val_openai_summ[i])['input_ids'])
         train_post_summ[tmp] = val_labels[i]
 
+    # rows = []
+    # for (post, summ) in zip(val_openai_summ, val_labels):
+    #     rows.append([post, summ])
+    # wandb.log({"Validation Table": wandb.Table(columns=["post", "summary"], rows=rows)})
     
-    prompts = train_openai_summ #+ val_openai_summ
+    prompts = train_openai_summ + val_openai_summ
+    # shuffle prompts
+    import random
+    random.seed(42)
+    random.shuffle(prompts)
 
     config = TRLConfig.load_yaml("ppo_config_summ.yml")
     model = trlx.train(
         config.model.model_path,
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=val_openai_summ[0:16],
+        eval_prompts=val_openai_summ[0:50],
         config=config
     )
