@@ -5,7 +5,7 @@ model:
   num_layers_unfrozen: 8 #-1 # Number of bottom layers to freeze during training
 
 train:
-  seq_length: 550  # Size of LM context
+  seq_length: 512  # Size of LM context
   epochs: 25  # Train for max(epochs, total_steps)
   total_steps: 100000  # Train for max(epochs, total_steps)
   batch_size: 1  # batch size
@@ -39,6 +39,6 @@ method:
     max_length: 550  # LM max sample gen length
     min_length: 550  # LM min sample gen length
     # top_k: 0.0  # top k
-    # top_p: 1.0  # top p
+    # top_p: 0.95  # top p
     # do_sample: True  # sample
-    # temperature: 0.3
+    # temperature: 0.2

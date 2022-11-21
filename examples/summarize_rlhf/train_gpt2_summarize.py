@@ -26,24 +26,27 @@ import argparse
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Training GPT-2 Supervised learning')
-    parser.add_argument('--base_model', type=str, default='gpt2-xl', help='GPT2 base model name or path: [gpt2, gpt2-xl, gpt2-medium, gpt2-large]')
-    parser.add_argument('--dataset-dir', type=str, default='/fsx/home-duyphung/refactor_summarize_rlhf/openai_data/tldr_filtered', help='Path to dataset directory')
-    parser.add_argument('--max_input_length', type=int, default=550, help='Max input length')
-    parser.add_argument('--output_dir', type=str, default='gpt2-supervised-summarize-checkpoint', help='Output directory')
-    parser.add_argument('--train_batch_size', type=int, default=1, help='Training batch size')
-    parser.add_argument('--eval_batch_size', type=int, default=1, help='Evaluation batch size')
-    parser.add_argument('--num_train_epochs', type=int, default=5, help='Number of training epochs')
-    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Learning rate')
-    parser.add_argument('--warmup_steps', type=int, default=300, help='Warmup steps')
-    parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='Gradient accumulation steps')
-    parser.add_argument('--logging_steps', type=int, default=30, help='Logging steps')
-    parser.add_argument('--eval_steps', type=int, default=1000, help='Evaluation steps')
-    parser.add_argument('--save_steps', type=int, default=2000, help='Save steps')
-    parser.add_argument('--ds_config', type=str, default='ds_config_zero3.json', help='DeepSpeed config file')
-    
+    # parser = argparse.ArgumentParser(description='Training GPT-2 Supervised learning')
+    # parser.add_argument('--base_model', type=str, default='gpt2-xl', help='GPT2 base model name or path: [gpt2, gpt2-xl, gpt2-medium, gpt2-large]')
+    # parser.add_argument('--dataset-dir', type=str, default='/fsx/home-duyphung/refactor_summarize_rlhf/openai_data/tldr_filtered', help='Path to dataset directory')
+    # parser.add_argument('--max_input_length', type=int, default=550, help='Max input length')
+    # parser.add_argument('--output_dir', type=str, default='gpt2-supervised-summarize-checkpoint', help='Output directory')
+    # parser.add_argument('--train_batch_size', type=int, default=1, help='Training batch size')
+    # parser.add_argument('--eval_batch_size', type=int, default=1, help='Evaluation batch size')
+    # parser.add_argument('--num_train_epochs', type=int, default=5, help='Number of training epochs')
+    # parser.add_argument('--learning_rate', type=float, default=5e-5, help='Learning rate')
+    # parser.add_argument('--warmup_steps', type=int, default=300, help='Warmup steps')
+    # parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='Gradient accumulation steps')
+    # parser.add_argument('--logging_steps', type=int, default=30, help='Logging steps')
+    # parser.add_argument('--eval_steps', type=int, default=1000, help='Evaluation steps')
+    # parser.add_argument('--save_steps', type=int, default=2000, help='Save steps')
+    # parser.add_argument('--ds_config', type=str, default='ds_config_zero3.json', help='DeepSpeed config file')
 
-    args = parser.parse_args()
+    # args = parser.parse_args()
+    # import pickle
+    #pickle.dump(args, open("args_train_sup.pkl", "wb"))
+    #exit()
+    args = pickle.load(open("args_train_sup.pkl", "rb"))
     random.seed(42)
     # Load the GPT tokenizer.
     tokenizer = GPT2Tokenizer.from_pretrained(args.base_model)
@@ -80,8 +83,8 @@ def main():
         warmup_steps=args.warmup_steps,
         eval_steps=args.eval_steps,
         save_steps=args.save_steps,
-        load_best_model_at_end=True,
-        deepspeed=args.ds_config
+        load_best_model_at_end=True
+        # deepspeed=args.ds_config
     )
 
     trainer = Trainer(

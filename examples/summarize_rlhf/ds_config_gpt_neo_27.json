@@ -1,5 +1,5 @@
 {
-  "train_batch_size": 64,
+  "train_batch_size": 128,
   "fp16": {
     "enabled": true,
     "min_loss_scale": 1,
@@ -20,7 +20,7 @@
   "optimizer": {
     "type": "AdamW",
     "params": {
-      "lr": 5e-05,
+      "lr": 2.5e-05,
       "betas": [
         0.9,
         0.999
@@ -32,8 +32,8 @@
     "type": "WarmupLR",
     "params": {
       "warmup_min_lr": 0,
-      "warmup_max_lr": 5e-05,
-      "warmup_num_steps": 50
+      "warmup_max_lr": 2.5e-05,
+      "warmup_num_steps": 100
     }
   }
 }

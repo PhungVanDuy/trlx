@@ -49,21 +49,22 @@ def main():
     import pickle
     args = pickle.load(open("args_train_sup.pkl", "rb"))
     args.output_dir = "gptneo-supervised-summarize-checkpoint"
-    args.train_batch_size = 1
-    args.gradient_accumulation_steps = 8
+    args.train_batch_size = 16
+    args.gradient_accumulation_steps = 1
+    args.learning_rate = 2.5e-5
     args.eval_batch_size = 1
-    args.eval_steps = 10
-    args.max_input_length = 500
+    args.eval_steps = 200
+    args.max_input_length = 550
+    args.save_steps = 1000
     random.seed(42)
     # Load the GPT tokenizer.
     from transformers import AutoTokenizer, AutoModelForCausalLM
-    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-2.7B", bos_token='<|startoftext|>', eos_token='<|endoftext|>', pad_token='<|pad|>')
-    model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-2.7B", use_cache=False)
-    # for block in model.transformer.h[0:30]:
-    #     for parameter in block.parameters():
-    #         parameter.requires_grad = False
-    # import ipdb; ipdb.set_trace()
+    # tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-2.7B", bos_token='<|startoftext|>', eos_token='<|endoftext|>', pad_token='<|pad|>')
+    # model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-2.7B", use_cache=False)
     
+    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")#, bos_token='<|startoftext|>', eos_token='<|endoftext|>', pad_token='<|pad|>')
+    model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-j-6B", use_cache=False)
+    tokenizer.pad_token = tokenizer.eos_token    
     model.resize_token_embeddings(len(tokenizer))
     # tokenizer.pad_token = tokenizer.eos_token
     # tokenizer.padding_side = "left"
@@ -92,6 +93,7 @@ def main():
         output_dir=args.output_dir, 
         evaluation_strategy="steps",
         eval_accumulation_steps=1,
+        learning_rate=args.learning_rate,
         per_device_train_batch_size=args.train_batch_size,
         per_device_eval_batch_size=args.eval_batch_size,
         gradient_checkpointing=True,
@@ -99,7 +101,7 @@ def main():
         fp16=True,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         num_train_epochs=args.num_train_epochs,
-        warmup_steps=50,
+        warmup_steps=100,
         eval_steps=args.eval_steps,
         save_steps=args.save_steps,
         load_best_model_at_end=True,
