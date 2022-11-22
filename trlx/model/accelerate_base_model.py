@@ -205,7 +205,12 @@ class AccelerateRLModel(BaseRLModel):
 
             rows = list(zip(*columns_data))
             stats["samples"] = wandb.Table(columns=columns, rows=rows)
-
+            import pandas as pd
+            ref_df = pd.read_csv("/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/supervised_with_reward_scores.csv")
+            rows = []
+            for (pred, pred_score, truth_score) in zip(ref_df["supervised_pred"], ref_df["score"], ref_df["score_truth"]):
+                rows.append([pred, pred_score - truth_score])
+            stats["refs"] = wandb.Table(columns=["samples", "reward"], rows=rows)
             #print(rows[0])
 
         return stats
@@ -216,7 +221,6 @@ class AccelerateRLModel(BaseRLModel):
         """
 
         self.prepare_learning()
-        self.accelerator.gradient_accumulation_steps = 8
         
         tbar = tqdm(
             total=self.total_steps, disable=not self.accelerator.is_local_main_process

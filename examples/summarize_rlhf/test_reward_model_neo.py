@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config
 from reward_model import GPT2LMHeadRewardModel, RewardOutput
+from reward_gptneo_model import GPTJRewardModel
+from transformers import AutoTokenizer
 
 from summarize_dataset import ComparisionDataset
 from tqdm import tqdm
@@ -34,8 +36,8 @@ def data_collator_prepare(features):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test Reward Model')
-    parser.add_argument('--base_model', type=str, default='gpt2-xl', help='Path to base model')
-    parser.add_argument('--reward_model_path', type=str, default='/fsx/home-duyphung/trlx/supervised_models/gpt2-reward-model-summarize/checkpoint-2000', help='Path to checkpoint of trained reward model')
+    parser.add_argument('--base_model', type=str, default='EleutherAI/gpt-j-6B', help='Path to base model')
+    parser.add_argument('--reward_model_path', type=str, default='/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/gptneo-reward-summarize-checkpoint/checkpoint-400', help='Path to checkpoint of trained reward model')
     parser.add_argument('--dataset-dir', type=str, default='/fsx/home-duyphung/refactor_summarize_rlhf/openai_data/comparisons', help='Path to dataset directory')
     parser.add_argument('--max_input_length', type=int, default=550, help='Max input length')
     parser.add_argument('--output_dir', type=str, default='gpt2-reward-summarize-checkpoint', help='Output directory')
@@ -43,20 +45,20 @@ if __name__ == "__main__":
     
     set_seed()
     args = parser.parse_args()
-    rw_tokenizer = GPT2Tokenizer.from_pretrained(args.base_model)
+    rw_tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+    rw_tokenizer.pad_token = rw_tokenizer.eos_token    
 
     train_dataset = ComparisionDataset(os.path.join(args.dataset_dir, "train_comparisons.jsonl"), rw_tokenizer)
     dev_dataset = ComparisionDataset(os.path.join(args.dataset_dir, "valid_comparisons.jsonl"), rw_tokenizer)
     test_dataset = ComparisionDataset(os.path.join(args.dataset_dir, "test_comparisons.jsonl"), rw_tokenizer)
-    gpt2model = GPT2LMHeadRewardModel.from_pretrained(args.reward_model_path)
+    gpt2model = GPTJRewardModel.from_pretrained(args.reward_model_path)
     gpt2model.resize_token_embeddings(len(rw_tokenizer))
     gpt2model.config.pad_token_id = rw_tokenizer.pad_token_id
     gpt2model.config.pad_token_id = rw_tokenizer.bos_token_id
-    rw_tokenizer.pad_token_id = rw_tokenizer.bos_token_id
 
     from torch.utils.data import DataLoader
     dev_dataloader = DataLoader(
-        dev_dataset, shuffle=False, batch_size=32, collate_fn=data_collator_prepare
+        dev_dataset, shuffle=False, batch_size=2, collate_fn=data_collator_prepare
     )
     gpt2model.cuda()
     gpt2model.eval()

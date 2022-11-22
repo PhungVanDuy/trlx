@@ -66,6 +66,9 @@ def main():
     model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-j-6B", use_cache=False)
     tokenizer.pad_token = tokenizer.eos_token    
     model.resize_token_embeddings(len(tokenizer))
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    model.config.end_token_id = tokenizer.eos_token_id
+    model.config.pad_token_id = model.config.eos_token_id
     # tokenizer.pad_token = tokenizer.eos_token
     # tokenizer.padding_side = "left"
     train_dataset = TLDRDataset(os.path.join(args.dataset_dir, "train.jsonl"), tokenizer, max_length=args.max_input_length)

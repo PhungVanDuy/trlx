@@ -30,7 +30,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         self.model, self.opt, self.scheduler, rollout_loader = self.accelerator.prepare(
             self.model, self.opt, self.scheduler, rollout_loader
         )
-
+        print("Model prepared: ", type(self.model))
         self.store.clear_history()
         if config.method.target is not None:
             self.kl_ctl = AdaptiveKLController(

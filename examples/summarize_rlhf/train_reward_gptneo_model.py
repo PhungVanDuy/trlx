@@ -50,6 +50,9 @@ if __name__ == "__main__":
     base.resize_token_embeddings(len(tokenizer))
     model = GPTJRewardModel(base.config)
     model.get_pretrained_model(base)
+    tokenizer.pad_token_id = tokenizer.eos_token_id
+    model.config.end_token_id = tokenizer.eos_token_id
+    model.config.pad_token_id = model.config.eos_token_id
     
     
     train_dataset = ComparisionDataset(os.path.join("/fsx/home-duyphung/refactor_summarize_rlhf/openai_data/comparisons", "train_comparisons.jsonl"), tokenizer)
@@ -67,9 +70,9 @@ if __name__ == "__main__":
         gradient_accumulation_steps=2,
         fp16=True,
         eval_steps=200,
-        save_steps=1000,
-        warmup_steps=100,
-        num_train_epochs=5,
+        save_steps=400,
+        warmup_steps=50,
+        num_train_epochs=1,
         learning_rate=2.5e-5,
         deepspeed='./ds_config_gpt_neo_27.json'
     )

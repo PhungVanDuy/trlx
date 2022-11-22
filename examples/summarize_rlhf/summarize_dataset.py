@@ -58,8 +58,8 @@ class ComparisionDataset(Dataset):
         with open(comparision_path, 'r') as f:
             dataset = [json.loads(line) for line in f]
         
-        # if 'valid' in comparision_path:
-        #     dataset = dataset[:500]
+        if 'valid' in comparision_path:
+            dataset = dataset[:2000]
             
         self.tokenizer = tokenizer
         self.lst_post = []

@@ -98,17 +98,17 @@ if __name__ == "__main__":
     #     rows.append([post, summ])
     # wandb.log({"Validation Table": wandb.Table(columns=["post", "summary"], rows=rows)})
     
-    prompts = train_openai_summ + val_openai_summ
+    prompts = val_openai_summ # train_openai_summ + val_openai_summ
     # shuffle prompts
-    import random
-    random.seed(42)
-    random.shuffle(prompts)
-
+    #import random
+    #random.seed(42)
+    #random.shuffle(prompts)
+    print(val_labels[0:5])
     config = TRLConfig.load_yaml("ppo_config_summ.yml")
     model = trlx.train(
         config.model.model_path,
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=val_openai_summ[0:50],
+        eval_prompts=val_openai_summ[0:100],
         config=config
     )
