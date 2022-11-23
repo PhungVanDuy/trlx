@@ -1,9 +1,11 @@
 import importlib
+import sys
 import os
 from abc import abstractmethod
 from time import time
 from typing import Any, Dict, Iterable, Sequence, Tuple, Union
 
+import json
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator  # type: ignore
@@ -17,6 +19,11 @@ if importlib.util.find_spec("rich") is not None:
     from tqdm.rich import tqdm
 else:
     from tqdm import tqdm
+
+import ray
+from ray.air import session
+from ray.air.checkpoint import Checkpoint
+from trlx.utils import filter_non_scalars, get_git_tag
 
 
 @register_model
@@ -45,7 +52,7 @@ class AccelerateRLModel(BaseRLModel):
             self.tokenizer.padding_side = "left"
         else:
             self.tokenizer = None
-        self.model.gpt.config.pad_token_id = self.tokenizer.eos_token_id
+
         if hasattr(self.model.gpt, "gpt_neox"):
             gpt_blocks = self.model.gpt.gpt_neox.layers
         else:
@@ -63,14 +70,22 @@ class AccelerateRLModel(BaseRLModel):
         for m in gpt_blocks_to_freeze:
             m.requires_grad_(False)
 
-        if self.accelerator.is_main_process:
+        script_name = os.path.basename(sys.argv[0]).rsplit(".", 1)[0]
+        if not isinstance(config.model.model_path, str):
+            model_name = str(config.model.model_path).split()[0]
+        else:
+            model_name = config.model.model_path.split("/")[-1]
+        run_name = f"{script_name}/{model_name}"
+
+        if self.accelerator.is_main_process and not ray.is_initialized():
             self.accelerator.init_trackers(
                 project_name=self.config.train.project_name,
                 config=self.config.to_dict(),
                 init_kwargs={
                     "wandb": {
-                        "name": f"{config.model.model_path}",
+                        "name": run_name,
                         "entity": self.config.train.entity_name,
+                        "tags": [get_git_tag()],
                         "mode": "disabled"
                         if os.environ.get("debug", False)
                         else "online",
@@ -114,7 +129,6 @@ class AccelerateRLModel(BaseRLModel):
             attention_mask = attention_mask.to(self.accelerator.device)
 
         kwargs = dict(self.generate_kwargs, **kwargs)
-        
 
         with torch.no_grad():
             return self.accelerator.unwrap_model(self.model).generate(
@@ -142,7 +156,7 @@ class AccelerateRLModel(BaseRLModel):
         stats = {}
         all_samples = []
         generate_time = time()
-        for prompts in tqdm(self.eval_dataloader):
+        for prompts in self.eval_dataloader:
             if isinstance(prompts, torch.Tensor):
                 samples = self.generate(prompts)
             else:
@@ -150,7 +164,7 @@ class AccelerateRLModel(BaseRLModel):
 
             if isinstance(samples, tuple):
                 samples, *_ = samples
-            
+
             pad_token = self.tokenizer.eos_token_id if self.tokenizer else 0
             all_samples.append(
                 F.pad(
@@ -172,14 +186,10 @@ class AccelerateRLModel(BaseRLModel):
             else:
                 columns_data = [samples.tolist()]
             columns = ["samples"]
+
             # in online setting, compute the reward for validation
             if self.reward_fn:
-                rewards = []
-                batch_size = 16
-                for i in range(0, len(samples), batch_size):
-                    sub_samples = samples[i : i + batch_size]
-                    rewards.append(torch.as_tensor(self.reward_fn(sub_samples), dtype=torch.float))
-                rewards = torch.cat(rewards)
+                rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
                 mean_reward = rewards.mean()
                 columns.append("reward")
                 columns_data.append(rewards)
@@ -204,15 +214,15 @@ class AccelerateRLModel(BaseRLModel):
                     columns_data.append(values)
 
             rows = list(zip(*columns_data))
-            stats["samples"] = wandb.Table(columns=columns, rows=rows)
+            print(rows[0])
+            if not ray.is_initialized():
+                stats["samples"] = wandb.Table(columns=columns, rows=rows)
             import pandas as pd
             ref_df = pd.read_csv("/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/supervised_with_reward_scores.csv")
             rows = []
             for (pred, pred_score, truth_score) in zip(ref_df["supervised_pred"], ref_df["score"], ref_df["score_truth"]):
                 rows.append([pred, pred_score - truth_score])
             stats["refs"] = wandb.Table(columns=["samples", "reward"], rows=rows)
-            #print(rows[0])
-
         return stats
 
     def learn(self):
@@ -221,11 +231,26 @@ class AccelerateRLModel(BaseRLModel):
         """
 
         self.prepare_learning()
-        
-        tbar = tqdm(
-            total=self.total_steps, disable=not self.accelerator.is_local_main_process
-        )
         self.iter_count = 0
+
+        if ray.is_initialized():
+            checkpoint = session.get_checkpoint()
+            if checkpoint:
+                with checkpoint.as_directory() as dir:
+                    self.accelerator.load_state(dir)
+
+                    with open(os.path.join(dir, "state.json")) as f:
+                        state = json.load(f)
+                        self.iter_count = state["iter_count"]
+        else:
+            results = self.evaluate()
+            self.accelerator.log(results, step=self.iter_count)
+
+        tbar = tqdm(
+            initial=self.iter_count,
+            total=self.total_steps,
+            disable=not self.accelerator.is_local_main_process,
+        )
 
         for _ in range(self.config.train.epochs):
             for batch in self.train_dataloader:
@@ -242,31 +267,35 @@ class AccelerateRLModel(BaseRLModel):
                     self.opt.zero_grad()
                     self.scheduler.step()
                     self.iter_count += 1
-                    
+
                     if self.iter_count % self.config.train.checkpoint_interval == 0:
-                        import os
-                        dir_temp = f"{self.iter_count}_{self.config.train.checkpoint_dir}"
-                        if not os.path.exists(dir_temp):
-                            os.makedirs(dir_temp)
-                        self.save(directory=dir_temp)
-                    
-                    # if self.iter_count % self.config.train.checkpoint_interval == 0:
-                    #     self.save()
+                        self.save()
+
+                    stats["forward_time"] = forward_time
+                    stats["backward_time"] = backward_time
 
                     if self.iter_count % self.config.train.eval_interval == 0:
-                        print("Evaluating...")
                         results = self.evaluate()
+                        stats.update(results)
 
-                        results.update(stats)
-                        results.update(
-                            {
-                                "forward_time": forward_time,
-                                "backward_time": backward_time,
-                            }
-                        )
-                        self.accelerator.log(results)
+                        # Report the metrics to Ray Tune.
+                        if ray.is_initialized():
+                            self.save("state")
+                            with open("state/state.json", "w") as f:
+                                json.dump(dict(iter_count=self.iter_count), f)
+                            checkpoint = Checkpoint.from_directory("state")
+                            session.report(
+                                filter_non_scalars(stats), checkpoint=checkpoint
+                            )
 
-                    desc = ", ".join(f"{k}: {v:.2f}" for k, v in stats.items())
+                    if not ray.is_initialized():
+                        self.accelerator.log(stats, step=self.iter_count)
+
+                    desc = ", ".join(
+                        f"{k}: {v:.2f}"
+                        for k, v in stats.items()
+                        if k.startswith("loss")
+                    )
                     tbar.set_description(desc)
                     tbar.update()
 

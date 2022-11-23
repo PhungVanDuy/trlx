@@ -1,8 +1,9 @@
 import os
 import time
 from functools import reduce
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Dict
 from dataclasses import is_dataclass
+import subprocess
 
 import numpy as np
 import torch
@@ -136,3 +137,25 @@ def to_device(tree, device):
     Move all tensors in tree to device
     """
     return tree_map(lambda x: x.to(device), tree)
+
+
+def filter_non_scalars(xs: Dict) -> Dict:
+    """
+    Trims everything that can't be casted to float
+    """
+    ys = {}
+    for k, v in xs.items():
+        try:
+            ys[k] = float(v)
+        except TypeError:
+            continue
+
+    return ys
+
+
+def get_git_tag() -> str:
+    """
+    Returns commit's short hash and date
+    """
+    output = subprocess.check_output("git log --format='%h/%as' -n1".split())
+    return output.decode()[1:-2]

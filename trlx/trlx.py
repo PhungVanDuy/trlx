@@ -2,15 +2,7 @@ import os
 from typing import Callable, Iterable, List, Optional, Tuple
 
 from trlx.data.configs import TRLConfig
-
-from trlx.model.accelerate_ilql_model import AccelerateILQLModel
-from trlx.model.accelerate_ppo_model import AcceleratePPOModel
-
-from trlx.orchestrator.offline_orchestrator import OfflineOrchestrator
-from trlx.orchestrator.ppo_orchestrator import PPOOrchestrator
-
-from trlx.pipeline.offline_pipeline import PromptPipeline
-from trlx.utils.loading import get_model, get_orchestrator
+from trlx.utils.loading import get_model, get_orchestrator, get_pipeline
 
 
 def train(
@@ -34,6 +26,7 @@ def train(
         prompts (List[str]): Prompts to sample off from during online training
         eval_prompts (List[str]): Prompts to periodically validate training on
         metric_fn (Optional[Callable[List[str], List[float]]]): Function to compute statistics on validation samples
+        config (Optional[TRLConfig]): TRL configuration object to override default settings
         split_token (Optional[str]): Split samples in the dataset on prompts and continuations
         logit_mask (Optional[List]): Bigram masking matrix
     """
@@ -45,7 +38,7 @@ def train(
         if model_path:
             config.model.model_path = model_path
 
-        model: AcceleratePPOModel = get_model(config.model.model_type)(config)
+        model = get_model(config.model.model_type)(config)
 
         batch_size = config.train.batch_size * int(os.environ.get("WORLD_SIZE", 1))
         prompts = prompts or [model.tokenizer.bos_token] * batch_size
@@ -53,19 +46,14 @@ def train(
         if eval_prompts is None:
             eval_prompts = prompts[:batch_size]
 
-        if 0:
-            import torch
-            model.model.load_state_dict(torch.load("./cur_best/pytorch_model.bin"))
-            #model.model.load_state_dict(torch.load("./best_ppo_checkpoint//pytorch_model.bin"))
-            #torch.save(model.model.gpt.state_dict(), '/fsx/home-duyphung/trlx/supervised_models/gpt2-supervised-summarize/ppo_model.bin')
-            #exit()
-
-        pipeline = PromptPipeline(prompts, model.tokenizer)
-        orch: PPOOrchestrator = get_orchestrator(config.train.orchestrator)(
+        pipeline = get_pipeline(config.train.pipeline)(prompts, model.tokenizer)
+        orch = get_orchestrator(config.train.orchestrator)(
             model, pipeline, reward_fn=reward_fn, chunk_size=config.method.chunk_size
         )
         orch.make_experience(config.method.num_rollouts)
-        eval_pipeline = PromptPipeline(eval_prompts, model.tokenizer)
+        eval_pipeline = get_pipeline(config.train.pipeline)(
+            eval_prompts, model.tokenizer
+        )
         model.add_eval_pipeline(eval_pipeline)
 
     elif dataset is not None:
@@ -82,17 +70,22 @@ def train(
         if model_path:
             config.model.model_path = model_path
 
-        model = AccelerateILQLModel(
-            config=config, logit_mask=logit_mask, metric_fn=metric_fn
+        model = get_model(config.model.model_type)(
+            config=config,
+            logit_mask=logit_mask,
+            metric_fn=metric_fn,
         )
 
         batch_size = config.train.batch_size * int(os.environ.get("WORLD_SIZE", 1))
         if eval_prompts is None:
             eval_prompts = [model.tokenizer.bos_token] * batch_size
+        eval_pipeline = get_pipeline(config.train.pipeline)(
+            eval_prompts, model.tokenizer
+        )
 
-        eval_pipeline = PromptPipeline(eval_prompts, model.tokenizer)
-
-        orch = OfflineOrchestrator(model, split_token=split_token)
+        orch = get_orchestrator(config.train.orchestrator)(
+            model, split_token=split_token
+        )
         orch.make_experience(samples, rewards)
         model.add_eval_pipeline(eval_pipeline)
 
