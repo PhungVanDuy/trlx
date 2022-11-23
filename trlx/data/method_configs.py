@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List
 
 # specifies a dictionary of method configs
-_METHODS: Dict[str, any] = {}  # registry
+_METHODS: Dict[str, Any] = {}  # registry
 
 
 def register_method(name):
@@ -28,17 +28,6 @@ def register_method(name):
     return cls
 
 
-def get_method(name: str) -> Callable:
-    """
-    Return constructor for specified method config
-    """
-    name = name.lower()
-    if name in _METHODS:
-        return _METHODS[name]
-    else:
-        raise Exception("Error: Trying to access a method that has not been registered")
-
-
 @dataclass
 @register_method
 class MethodConfig:
@@ -56,31 +45,12 @@ class MethodConfig:
         return cls(**config)
 
 
-@dataclass
-@register_method
-class PPOConfig(MethodConfig):
-    ppo_epochs: int
-    num_rollouts: int
-    chunk_size: int
-    init_kl_coef: float
-    target: float
-    horizon: int
-    gamma: float
-    lam: float
-    cliprange: float
-    cliprange_value: float
-    vf_coef: float
-    gen_kwargs: dict
-
-
-@dataclass
-@register_method
-class ILQLConfig(MethodConfig):
-    tau: float
-    gamma: float
-    cql_scale: float
-    awac_scale: float
-    alpha: float
-    steps_for_target_q_sync: int
-    betas: List[float]
-    two_qs: bool
+def get_method(name: str) -> MethodConfig:
+    """
+    Return constructor for specified method config
+    """
+    name = name.lower()
+    if name in _METHODS:
+        return _METHODS[name]
+    else:
+        raise Exception("Error: Trying to access a method that has not been registered")

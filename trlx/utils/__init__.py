@@ -1,7 +1,9 @@
 import os
 import time
 from functools import reduce
-from typing import Any, Iterable, List
+from typing import Any, Iterable, List, Dict
+from dataclasses import is_dataclass
+import subprocess
 
 import numpy as np
 import torch
@@ -114,3 +116,46 @@ def sentiment_score(sentiments: Iterable[float]):
         [-s["score"] if s["label"] == "NEGATIVE" else s["score"] for s in sentiments]
     )
     return sentiments
+
+
+def tree_map(f, tree):
+    """
+    Apply function f to all leaves in tree
+    """
+    if is_dataclass(tree):
+        return tree.__class__(**{k: tree_map(f, v) for k, v in tree.__dict__.items()})
+    elif isinstance(tree, dict):
+        return {k: tree_map(f, v) for k, v in tree.items()}
+    elif isinstance(tree, (list, tuple)):
+        return tree.__class__(tree_map(f, v) for v in tree)
+    else:
+        return f(tree)
+
+
+def to_device(tree, device):
+    """
+    Move all tensors in tree to device
+    """
+    return tree_map(lambda x: x.to(device), tree)
+
+
+def filter_non_scalars(xs: Dict) -> Dict:
+    """
+    Trims everything that can't be casted to float
+    """
+    ys = {}
+    for k, v in xs.items():
+        try:
+            ys[k] = float(v)
+        except TypeError:
+            continue
+
+    return ys
+
+
+def get_git_tag() -> str:
+    """
+    Returns commit's short hash and date
+    """
+    output = subprocess.check_output("git log --format='%h/%as' -n1".split())
+    return output.decode()[1:-2]

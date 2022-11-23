@@ -1,12 +1,14 @@
 import importlib
+import sys
 import os
 from abc import abstractmethod
 from time import time
-from typing import Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Sequence, Tuple, Union
 
+import json
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator
+from accelerate import Accelerator  # type: ignore
 from transformers import AutoTokenizer
 
 import wandb
@@ -17,6 +19,11 @@ if importlib.util.find_spec("rich") is not None:
     from tqdm.rich import tqdm
 else:
     from tqdm import tqdm
+
+import ray
+from ray.air import session
+from ray.air.checkpoint import Checkpoint
+from trlx.utils import filter_non_scalars, get_git_tag
 
 
 @register_model
@@ -63,13 +70,22 @@ class AccelerateRLModel(BaseRLModel):
         for m in gpt_blocks_to_freeze:
             m.requires_grad_(False)
 
-        if self.accelerator.is_main_process:
+        script_name = os.path.basename(sys.argv[0]).rsplit(".", 1)[0]
+        if not isinstance(config.model.model_path, str):
+            model_name = str(config.model.model_path).split()[0]
+        else:
+            model_name = config.model.model_path.split("/")[-1]
+        run_name = f"{script_name}/{model_name}"
+
+        if self.accelerator.is_main_process and not ray.is_initialized():
             self.accelerator.init_trackers(
                 project_name=self.config.train.project_name,
                 config=self.config.to_dict(),
                 init_kwargs={
                     "wandb": {
-                        "name": f"{config.model.model_path}",
+                        "name": run_name,
+                        "entity": self.config.train.entity_name,
+                        "tags": [get_git_tag()],
                         "mode": "disabled"
                         if os.environ.get("debug", False)
                         else "online",
@@ -79,20 +95,25 @@ class AccelerateRLModel(BaseRLModel):
 
         self.opt = torch.optim.AdamW(
             self.model.parameters(),
-            lr=float(self.config.train.learning_rate_init),
+            lr=self.config.train.lr_init,
             betas=self.config.train.opt_betas,
+            eps=self.config.train.opt_eps,
+            weight_decay=self.config.train.weight_decay,
         )
 
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             self.opt,
             self.config.train.total_steps,
-            eta_min=float(self.config.train.learning_rate_target),
+            eta_min=self.config.train.lr_target,
         )
 
-    def tokenize(self, text: Iterable[str]):
+    def tokenize(self, text: Union[Sequence[str], Sequence[torch.LongTensor]]):
         """
         Tokenize a batch of text after adding bos token to each of the samples
         """
+        if isinstance(text[0], torch.LongTensor):
+            return text
+
         text = [self.tokenizer.bos_token + txt for txt in text]
         return self.tokenizer(
             text,
@@ -114,7 +135,7 @@ class AccelerateRLModel(BaseRLModel):
                 input_ids=input_ids, attention_mask=attention_mask, **kwargs
             )
 
-    def get_components(self) -> Dict[str, any]:
+    def get_components(self) -> Dict[str, Any]:
         components = (
             {"model": self.model, "opt": self.opt, "scheduler": self.scheduler}
             if self.train_mode
@@ -193,9 +214,9 @@ class AccelerateRLModel(BaseRLModel):
                     columns_data.append(values)
 
             rows = list(zip(*columns_data))
-            stats["samples"] = wandb.Table(columns=columns, rows=rows)
-
             print(rows[0])
+            if not ray.is_initialized():
+                stats["samples"] = wandb.Table(columns=columns, rows=rows)
 
         return stats
 
@@ -205,11 +226,26 @@ class AccelerateRLModel(BaseRLModel):
         """
 
         self.prepare_learning()
+        self.iter_count = 0
+
+        if ray.is_initialized():
+            checkpoint = session.get_checkpoint()
+            if checkpoint:
+                with checkpoint.as_directory() as dir:
+                    self.accelerator.load_state(dir)
+
+                    with open(os.path.join(dir, "state.json")) as f:
+                        state = json.load(f)
+                        self.iter_count = state["iter_count"]
+        else:
+            results = self.evaluate()
+            self.accelerator.log(results, step=self.iter_count)
 
         tbar = tqdm(
-            total=self.total_steps, disable=not self.accelerator.is_local_main_process
+            initial=self.iter_count,
+            total=self.total_steps,
+            disable=not self.accelerator.is_local_main_process,
         )
-        self.iter_count = 0
 
         for _ in range(self.config.train.epochs):
             for batch in self.train_dataloader:
@@ -230,19 +266,31 @@ class AccelerateRLModel(BaseRLModel):
                     if self.iter_count % self.config.train.checkpoint_interval == 0:
                         self.save()
 
+                    stats["forward_time"] = forward_time
+                    stats["backward_time"] = backward_time
+
                     if self.iter_count % self.config.train.eval_interval == 0:
                         results = self.evaluate()
+                        stats.update(results)
 
-                        results.update(stats)
-                        results.update(
-                            {
-                                "forward_time": forward_time,
-                                "backward_time": backward_time,
-                            }
-                        )
-                        self.accelerator.log(results)
+                        # Report the metrics to Ray Tune.
+                        if ray.is_initialized():
+                            self.save("state")
+                            with open("state/state.json", "w") as f:
+                                json.dump(dict(iter_count=self.iter_count), f)
+                            checkpoint = Checkpoint.from_directory("state")
+                            session.report(
+                                filter_non_scalars(stats), checkpoint=checkpoint
+                            )
 
-                    desc = ", ".join(f"{k}: {v:.2f}" for k, v in stats.items())
+                    if not ray.is_initialized():
+                        self.accelerator.log(stats, step=self.iter_count)
+
+                    desc = ", ".join(
+                        f"{k}: {v:.2f}"
+                        for k, v in stats.items()
+                        if k.startswith("loss")
+                    )
                     tbar.set_description(desc)
                     tbar.update()
 
