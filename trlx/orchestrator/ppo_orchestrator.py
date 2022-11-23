@@ -153,7 +153,6 @@ class PPOOrchestrator(Orchestrator):
                 PPORLElement(
                     query_tensor=query_tensors[i, :],
                     response_tensor=response_tensors[i, :],
-                    attention_masks=batch.attention_masks[i, :],
                     logprobs=all_logprobs[i, :],
                     values=all_values[i, :],
                     rewards=all_rewards[i, :],

@@ -14,7 +14,7 @@ from trlx.model.nn.ppo_models import (
 )
 from trlx.pipeline.ppo_pipeline import PPORolloutStorage
 from trlx.utils.modeling import logprobs_from_logits
-
+import wandb
 
 @register_model
 class AcceleratePPOModel(AccelerateRLModel):
@@ -30,7 +30,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         self.model, self.opt, self.scheduler, rollout_loader = self.accelerator.prepare(
             self.model, self.opt, self.scheduler, rollout_loader
         )
-
+        print("Model prepared: ", type(self.model))
         self.store.clear_history()
         if config.method.target is not None:
             self.kl_ctl = AdaptiveKLController(
@@ -77,12 +77,20 @@ class AcceleratePPOModel(AccelerateRLModel):
             old_values, old_rewards, response_length
         )
 
-        tokens, attention_mask, position_ids = self.get_model_inputs(
-            query_tensors, response_tensors
+        # tokens, attention_mask, position_ids = self.get_model_inputs(
+        #     query_tensors, response_tensors
+        # )
+        tokens = torch.cat((query_tensors, response_tensors), dim=1)
+        attention_mask = (tokens.not_equal(self.tokenizer.pad_token_id).long().to(tokens.device))
+        
+        outputs = self.model(
+            tokens, attention_mask, return_dict=True
         )
-        logits, _, values_pred = self.model(
-            tokens, attention_mask, position_ids=position_ids
-        )
+    
+        
+        logits = outputs.logits
+        values_pred = outputs.value
+        
         logprobs = logprobs_from_logits(logits[:, :-1, :], tokens[:, 1:])
         # Only the response part of the values/logprobs is needed
         logprobs, values_pred, mask = (
@@ -100,6 +108,7 @@ class AcceleratePPOModel(AccelerateRLModel):
             returns=returns,
             mask=mask,
         )
+        wandb.log({"train loss": loss})
         self.approx_kl = stats["policy/approx_kl"]  # Update kl controller stats
         return loss, stats
 

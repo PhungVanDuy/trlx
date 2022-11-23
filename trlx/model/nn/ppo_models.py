@@ -534,14 +534,14 @@ class GPTHydraHeadWithValueModel(nn.Module):
     def generate(self, input_ids, **x):
         return self.gpt.generate(input_ids, **x)
 
-    def forward_hydra(self, input_ids, **x):
+    def forward_hydra(self, input_ids, attention_mask, **x):
         if x.get("return_dict") is not None:
             return_dict = x["return_dict"]
         else:
             return_dict = True
         x["return_dict"] = True
         x["output_hidden_states"] = True
-        output = self.forward(input_ids, **x)
+        output = self.forward(input_ids, attention_mask, **x)
         all_hidden_states = output.hidden_states
         # Get output of last frozen hidden layer
         # Select hidden state before first layer of branch.
