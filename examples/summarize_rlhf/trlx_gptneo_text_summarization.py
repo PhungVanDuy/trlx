@@ -4,6 +4,7 @@ from typing import List
 import torch
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, AutoTokenizer
 from reward_model import GPT2LMHeadRewardModel
+from reward_model_inspect.reward_model import GPTRewardModel
 from summarize_dataset import get_dataset_from_jsonl
 import trlx
 from trlx.data.configs import TRLConfig
@@ -15,37 +16,61 @@ wandb.init(project="trlx", name="trlx-gpt2-summarize", entity="pvduy")
 
 if __name__ == "__main__":
     
-    
-    rw_tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
-    rw_model = GPT2LMHeadRewardModel.from_pretrained('/fsx/home-duyphung/trlx/supervised_models/gpt2-reward-model-summarize/checkpoint-2000')
-    rw_model.resize_token_embeddings(len(rw_tokenizer))
-    rw_model.config.pad_token_id = rw_tokenizer.pad_token_id
-    rw_model.config.pad_token_id = rw_tokenizer.bos_token_id
-    rw_tokenizer.pad_token_id = rw_tokenizer.bos_token_id
+    rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+    rw_tokenizer.pad_token = rw_tokenizer.eos_token
+    rw_model = GPTRewardModel("/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/gptneo-supervised-summarize-checkpoint/checkpoint-1000")
+    rw_model.load_state_dict(torch.load("reward_model_inspect/ckpts/openai_comparison_summary/gpt-j/checkpoint-1700/pytorch_model.bin"))
+    rw_model.half()
     rw_model.eval()
-    rw_device = torch.device("cuda:{}".format(3))
+    rw_device = torch.device("cuda:{}".format(1))
     rw_model.to(rw_device)
     
     def reward_fn(samples: List[str]):
-        lst_scores = []
+        original_samples = [text.split('TL;DR:')[0] + 'TL;DR: ' for text in samples]
+        original_samples = [text + train_post_summ[text] for text in original_samples]
+        
+        ori_lst_scores = []
         batch_size = 2
-        for i in range(0, len(samples), batch_size):
-            sub_samples = samples[i:i+batch_size]
+        for i in range(0, len(original_samples), batch_size):
+            sub_samples = original_samples[i:i+batch_size]
+            sub_samples = ['<|startoftext|>' + chosen + '<|endoftext|>' for chosen in sub_samples]
             encodings_dict = rw_tokenizer(
                     sub_samples, 
                     truncation=True, 
                     max_length=550, 
-                    padding="max_length"
+                    padding="max_length",
+                    return_tensors="pt"
             )
-            input_ids = torch.tensor(encodings_dict['input_ids']).to(rw_device)
-            attn_masks = torch.tensor(encodings_dict['attention_mask']).to(rw_device)
+            input_ids = encodings_dict['input_ids'].to(rw_device)
+            attn_masks = encodings_dict['attention_mask'].to(rw_device)
             input_ids = input_ids.repeat(2, 1)
             attn_masks = attn_masks.repeat(2, 1)
             with torch.no_grad():
                 sub_scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
-            lst_scores.append(sub_scores.logits[:, 0])
+            ori_lst_scores.append(sub_scores['chosen_end_scores'])
+        ori_scores = torch.cat(ori_lst_scores, dim=0)
+        
+        lst_scores = []
+        batch_size = 2
+        for i in range(0, len(samples), batch_size):
+            sub_samples = samples[i:i+batch_size]
+            sub_samples = ['<|startoftext|>' + chosen + '<|endoftext|>' for chosen in sub_samples]
+            encodings_dict = rw_tokenizer(
+                    sub_samples, 
+                    truncation=True, 
+                    max_length=550, 
+                    padding="max_length",
+                    return_tensors="pt"
+            )
+            input_ids = encodings_dict['input_ids'].to(rw_device)
+            attn_masks = encodings_dict['attention_mask'].to(rw_device)
+            input_ids = input_ids.repeat(2, 1)
+            attn_masks = attn_masks.repeat(2, 1)
+            with torch.no_grad():
+                sub_scores = rw_model(input_ids=input_ids, attention_mask=attn_masks)
+            lst_scores.append(sub_scores['chosen_end_scores'])
         scores = torch.cat(lst_scores, dim=0)
-        norms_scores = scores
+        norms_scores = scores  - ori_scores
         return norms_scores
 
     train_openai_summ, train_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/trlx/openai_data/tldr_filtered", "train.jsonl"), False)
