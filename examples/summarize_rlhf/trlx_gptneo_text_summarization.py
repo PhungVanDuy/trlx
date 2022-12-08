@@ -18,7 +18,7 @@ if __name__ == "__main__":
     
     rw_tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
     rw_tokenizer.pad_token = rw_tokenizer.eos_token
-    rw_model = GPTRewardModel("/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/gptneo-supervised-summarize-checkpoint/checkpoint-1000")
+    rw_model = GPTRewardModel("/fsx/home-duyphung/sandbox/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/gptneo-supervised-summarize-checkpoint/checkpoint-1000")
     rw_model.load_state_dict(torch.load("reward_model_inspect/ckpts/openai_comparison_summary/gpt-j/checkpoint-1700/pytorch_model.bin"))
     rw_model.half()
     rw_model.eval()
@@ -73,9 +73,9 @@ if __name__ == "__main__":
         norms_scores = scores  - ori_scores
         return norms_scores
 
-    train_openai_summ, train_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/trlx/openai_data/tldr_filtered", "train.jsonl"), False)
-    val_openai_summ, val_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/trlx/openai_data/tldr_filtered", "valid.jsonl"), False)
-    test_openai_sum, test_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/trlx/openai_data/tldr_filtered", "test.jsonl"), False)
+    train_openai_summ, train_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/sandbox/trlx/openai_data/tldr_filtered", "train.jsonl"), False)
+    val_openai_summ, val_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/sandbox/trlx/openai_data/tldr_filtered", "valid.jsonl"), False)
+    test_openai_sum, test_labels = get_dataset_from_jsonl(os.path.join("/fsx/home-duyphung/sandbox/trlx/openai_data/tldr_filtered", "test.jsonl"), False)
     
     train_post_summ = {}
     for i in range(len(train_openai_summ)):

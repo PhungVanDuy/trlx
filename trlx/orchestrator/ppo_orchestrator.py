@@ -63,13 +63,14 @@ class PPOOrchestrator(Orchestrator):
         stats = {}
         clock = Clock()
         while len(ppo_rl_elements) < num_rollouts:
+            print("Making experience: ", len(ppo_rl_elements))
             # Get next batch in prompt dataset and refresh if exhausted
             try:
                 batch: PromptBatch = next(self.pipeline_iterator)
             except StopIteration:
                 self.pipeline_iterator = iter(self.pipeline_loader)
                 batch = next(self.pipeline_iterator)
-
+            
             exp_generate_time = time()
             samples = self.rl_model.generate(**batch)
             stats["exp_generate_time"] = time() - exp_generate_time
@@ -82,7 +83,6 @@ class PPOOrchestrator(Orchestrator):
             exp_score_time = time()
             scores = torch.as_tensor(self.score(texts), device=samples.device)
             stats["exp_score_time"] = time() - exp_score_time
-
             # store statistics of the initial rollout as reference
             if self.ref_mean is None:
                 self.ref_mean, self.ref_std = scores.mean(), scores.std()
@@ -102,13 +102,18 @@ class PPOOrchestrator(Orchestrator):
                 scores = torch.clip(scores, -clip_reward, clip_reward)
 
             # Precompute logprobs, values
+            # import ipdb; ipdb.set_trace()
             all_tokens, attention_mask, position_ids = self.rl_model.get_model_inputs(
                 query_tensors, response_tensors
             )
             with torch.no_grad():
-                logits, _, v = self.rl_model.model(
-                    all_tokens, attention_mask, position_ids=position_ids
+                outputs = self.rl_model.model(
+                    all_tokens, attention_mask,
+                    position_ids=position_ids,  
+                    return_dict=True
                 )
+                logits = outputs.logits
+                v = outputs.value
                 # TODO(dahoas): When hydra model works need to also support generation on hydra head
                 if hasattr(self.rl_model.model, "frozen_head"):
                     ref_logits = self.rl_model.model.forward_hydra(
@@ -118,11 +123,12 @@ class PPOOrchestrator(Orchestrator):
                         return_dict=False,
                     )
                 else:
-                    ref_logits, _, _ = self.ref_model(
+                    outputs = self.ref_model(
                         all_tokens.cpu(),
                         attention_mask.cpu(),
                         position_ids=position_ids.cpu(),
                     )
+                    ref_logits = outputs.logits
 
             ref_logits = ref_logits.to(self.rl_model.accelerator.device)
             logprobs = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])

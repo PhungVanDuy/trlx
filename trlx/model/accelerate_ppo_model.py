@@ -55,7 +55,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         query_tensors: TensorType["batch_size", "query_size"],
         response_tensors: TensorType["batch_size", "response_size"],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        tokens = torch.cat((query_tensors, response_tensors), dim=1)
+        tokens = torch.cat((query_tensors.to(response_tensors.device), response_tensors), dim=1)
         attention_mask = (
             tokens.not_equal(self.tokenizer.pad_token_id).long().to(tokens.device)
         )

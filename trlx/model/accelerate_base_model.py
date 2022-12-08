@@ -35,7 +35,7 @@ class AccelerateRLModel(BaseRLModel):
     def __init__(self, config, train_mode=True):
         super().__init__(config, train_mode)
 
-        self.accelerator = Accelerator(log_with="wandb")
+        self.accelerator = Accelerator(log_with="wandb", gradient_accumulation_steps=2)
 
         if int(os.environ.get("WORLD_SIZE", 1)) > 1:
             torch.distributed.barrier(device_ids=[int(os.environ.get("LOCAL_RANK", 0))])
@@ -189,11 +189,19 @@ class AccelerateRLModel(BaseRLModel):
 
             # in online setting, compute the reward for validation
             if self.reward_fn:
-                rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
+                
+                rewards = []
+                batch_size = 16
+                for i in range(0, len(samples), batch_size):
+                    sub_samples = samples[i : i + batch_size]
+                    rewards.append(torch.as_tensor(self.reward_fn(sub_samples), dtype=torch.float))
+                rewards = torch.cat(rewards)
+                
+                #rewards = torch.as_tensor(self.reward_fn(samples), dtype=torch.float)
                 mean_reward = rewards.mean()
                 columns.append("reward")
                 columns_data.append(rewards)
-                stats["mean_reward"] = mean_reward
+                #stats["mean_reward"] = mean_reward
                 print(f"{mean_reward=}")
 
             # additionally log any other metrics
@@ -218,11 +226,12 @@ class AccelerateRLModel(BaseRLModel):
             if not ray.is_initialized():
                 stats["samples"] = wandb.Table(columns=columns, rows=rows)
             import pandas as pd
-            ref_df = pd.read_csv("/fsx/home-duyphung/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/supervised_with_reward_scores.csv")
+            ref_df = pd.read_csv("/fsx/home-duyphung/sandbox/refactor_summarize_rlhf/trlx/examples/summarize_rlhf/supervised_with_reward_scores_neo.csv")
             rows = []
             for (pred, pred_score, truth_score) in zip(ref_df["supervised_pred"], ref_df["score"], ref_df["score_truth"]):
                 rows.append([pred, pred_score - truth_score])
             stats["refs"] = wandb.Table(columns=["samples", "reward"], rows=rows)
+            stats["reward_mean"] = wandb.log({"reward_mean": mean_reward})
         return stats
 
     def learn(self):
