@@ -6,7 +6,7 @@ model:
 
 train:
   seq_length: 512  # Size of LM context
-  epochs: 25  # Train for max(epochs, total_steps)
+  epochs: 50  # Train for max(epochs, total_steps)
   total_steps: 100000  # Train for max(epochs, total_steps)
   batch_size: 4  # batch size
 
@@ -35,12 +35,12 @@ method:
   cliprange: 0.2  # clip range
   cliprange_value: 0.2  # clip range
   vf_coef: 0.2  # value term weight
-  scale_reward: False # "ref" # "running" # False | "ref" | "running" estimate against which to scale rewards
+  scale_reward: False #'running' # "ref" # "running" # False | "ref" | "running" estimate against which to scale rewards
   ref_mean: None #2.875
   ref_std: None #1.177 # rescale rewards with this deviation
   cliprange_reward: 10
   gen_kwargs:
-    max_new_tokens: 50  # LM max sample gen length
+    max_new_tokens: 64  # LM max sample gen length
     # top_k: 0.0  # top k
     # top_k: 50
     # top_p: 0.95  # top p

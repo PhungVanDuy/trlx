@@ -146,6 +146,7 @@ class AccelerateRLModel(BaseRLModel):
     def save(self, directory=None):
         """Creates checkpoint of optimizer, scheduler and a model"""
         self.accelerator.save_state(directory or self.config.train.checkpoint_dir)
+        torch.save(self.model.gpt.state_dict(), os.path.join(directory or self.config.train.checkpoint_dir, "gpt.bin"))
 
     def add_eval_pipeline(self, eval_pipeline):
         """Adds pipeline from with validation prompts"""
@@ -220,7 +221,6 @@ class AccelerateRLModel(BaseRLModel):
                 for metric, values in metrics.items():
                     columns.append(metric)
                     columns_data.append(values)
-
             rows = list(zip(*columns_data))
             print(rows[0])
             if not ray.is_initialized():
@@ -230,8 +230,8 @@ class AccelerateRLModel(BaseRLModel):
             rows = []
             for (pred, pred_score, truth_score) in zip(ref_df["supervised_pred"], ref_df["score"], ref_df["score_truth"]):
                 rows.append([pred, pred_score - truth_score])
-            stats["refs"] = wandb.Table(columns=["samples", "reward"], rows=rows)
-            stats["reward_mean"] = wandb.log({"reward_mean": mean_reward})
+            #stats["refs"] = wandb.Table(columns=["samples", "reward"], rows=rows)
+            stats["reward_mean"] = mean_reward
         return stats
 
     def learn(self):

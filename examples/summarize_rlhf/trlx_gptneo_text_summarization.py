@@ -12,7 +12,8 @@ import argparse
 import os
 import wandb
 
-wandb.init(project="trlx", name="trlx-gpt2-summarize", entity="pvduy")
+
+#wandb.init(project="trlx_ver2", name="trlx-gpt2-summarize-val-test", entity="pvduy")
 
 if __name__ == "__main__":
     
@@ -86,12 +87,19 @@ if __name__ == "__main__":
         tmp = rw_tokenizer.decode(rw_tokenizer(val_openai_summ[i])['input_ids'])
         train_post_summ[tmp] = val_labels[i]
 
-    prompts = val_openai_summ # train_openai_summ + val_openai_summ
+    for i in range(len(test_openai_sum)):
+        tmp = rw_tokenizer.decode(rw_tokenizer(test_openai_sum[i])['input_ids'])
+        train_post_summ[tmp] = test_labels[i]
+
+
+
+    prompts = val_openai_summ
+    print(len(prompts))
     config = TRLConfig.load_yaml("ppo_config_summ_neo.yml")
     model = trlx.train(
         config.model.model_path,
         reward_fn=reward_fn,
         prompts=prompts,
-        eval_prompts=val_openai_summ[0:100],
+        eval_prompts=val_openai_summ[0:1000],
         config=config
     )
