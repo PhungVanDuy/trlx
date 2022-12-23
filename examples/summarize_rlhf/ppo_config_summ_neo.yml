@@ -5,7 +5,7 @@ model:
   num_layers_unfrozen: 8 #-1 # Number of bottom layers to freeze during training
 
 train:
-  seq_length: 512  # Size of LM context
+  seq_length: 550  # Size of LM context
   epochs: 50  # Train for max(epochs, total_steps)
   total_steps: 100000  # Train for max(epochs, total_steps)
   batch_size: 4  # batch size
@@ -15,7 +15,7 @@ train:
   lr_target: 5.0e-6  # target final learning rate
   opt_eps: 1.0e-8 
   opt_betas: [0.9, 0.999] # adam betas
-
+  checkpoint_dir: "trn_eval_tmp_ckpt"
   checkpoint_interval: 1000  # checkpoint interval
   eval_interval: 100  # eval interval
 
@@ -45,4 +45,5 @@ method:
     # top_k: 50
     # top_p: 0.95  # top p
     # do_sample: True  # sample
-    #temperature: 0.1
+    # top_k: 0
+    # top_p: 1.0
