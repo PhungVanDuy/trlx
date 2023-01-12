@@ -48,7 +48,7 @@ def main(hparams={}):
 
     return trlx.train(
         reward_fn=reward_fn,
-        prompts=prompts,
+        prompts=[prompts[0]] * 1000,
         eval_prompts=["I don't know much about Hungarian underground"] * 64,
         config=config,
     )

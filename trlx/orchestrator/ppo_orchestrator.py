@@ -149,31 +149,33 @@ class PPOOrchestrator(Orchestrator):
                             decoder_input_ids=response_tensors,
                         ).logits
             else:
-                all_tokens = torch.cat(
-                    (query_tensors.to(response_tensors.device), response_tensors), dim=1
-                )
-                attention_mask = (
-                    all_tokens.not_equal(self.trainer.tokenizer.pad_token_id)
-                    .long()
-                    .to(all_tokens.device)
+                # Precompute logprobs, values
+                (
+                    all_tokens,
+                    attention_mask,
+                    position_ids,
+                ) = self.trainer.get_model_inputs(
+                    query_tensors.to(response_tensors.device), response_tensors
                 )
                 with torch.no_grad():
                     logits, *_, values = self.trainer.model(
                         all_tokens,
                         attention_mask=attention_mask,
+                        position_ids=position_ids,
                     )
                     # TODO(dahoas): When hydra model works need to also support generation on hydra head
                     if hasattr(self.trainer.model, "frozen_head"):
                         ref_logits = self.trainer.model.forward_hydra(
                             all_tokens,
                             attention_mask=attention_mask,
+                            position_ids=position_ids,
                             return_dict=False,
                         )
                     else:
                         ref_logits, _, *_ = self.ref_model(
-                            all_tokens,
-                            attention_mask=attention_mask,
-                            return_dict=False,
+                            all_tokens.cpu(),
+                            attention_mask=attention_mask.cpu(),
+                            position_ids=position_ids.cpu(),
                         )
                         ref_logits = ref_logits.to(self.trainer.accelerator.device)
 
@@ -185,9 +187,10 @@ class PPOOrchestrator(Orchestrator):
                     ref_logits[:, :-1, :], response_tensors[:, 1:]
                 )
             else:
-                logprobs = logprobs_from_logits(logits, all_tokens)
-                ref_logprobs = logprobs_from_logits(ref_logits, all_tokens)
-
+                logprobs = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])
+                ref_logprobs = logprobs_from_logits(
+                    ref_logits[:, :-1, :], all_tokens[:, 1:]
+                )
             n = samples.shape[0]
             logprobs = logprobs.cpu()
             ref_logprobs = ref_logprobs.cpu()
@@ -207,11 +210,6 @@ class PPOOrchestrator(Orchestrator):
                     for ix in range(n)
                 ]
             else:
-                logprobs = logprobs_from_logits(logits[:, :-1, :], all_tokens[:, 1:])
-                ref_logprobs = logprobs_from_logits(
-                    ref_logits[:, :-1, :], all_tokens[:, 1:]
-                )
-
                 n = samples.shape[0]
                 values = values.cpu()[:, :-1]
                 logprobs = logprobs.cpu()

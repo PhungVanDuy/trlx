@@ -243,6 +243,7 @@ class AccelerateRLTrainer(BaseRLTrainer):
             )
 
     def save(self, directory=None):
+        return
         """Creates checkpoint of optimizer, scheduler and a model"""
         self.accelerator.save_state(directory or self.config.train.checkpoint_dir)
         if directory:
