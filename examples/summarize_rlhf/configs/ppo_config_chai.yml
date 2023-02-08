@@ -1,23 +1,23 @@
 train:
-  seq_length: 550
+  seq_length: 256
   epochs: 50
   total_steps: 100000
   batch_size: 4
 
-  checkpoint_interval: 10000
-  eval_interval: 200
+  checkpoint_interval: 1000
+  eval_interval: 500
 
   pipeline: "PromptPipeline"
   orchestrator: "PPOOrchestrator"
   trainer: "AcceleratePPOTrainer"
 
 model:
-  model_path: "CarperAI/openai_summarize_tldr_sft"
+  model_path: "/fsx/home-duyphung/models/litv2-6B-rev2/models--ChaiML--litv2-6B-rev2/snapshots/7033b427f06dc5115fe1d1dc8dfc5d9f79f5c2a9/"
   num_layers_unfrozen: 8
 
 tokenizer:
-  tokenizer_path: "gpt2"
-  truncation_side: "right"
+  tokenizer_path: "/fsx/home-duyphung/models/litv2-6B-rev2/models--ChaiML--litv2-6B-rev2/snapshots/7033b427f06dc5115fe1d1dc8dfc5d9f79f5c2a9/"
+  truncation_side: "left"
 
 optimizer:
   name: "adamw"
@@ -52,3 +52,6 @@ method:
   cliprange_reward: 10
   gen_kwargs:
     max_new_tokens: 20
+    do_sample: True
+    top_k: 50
+    temperature: 1.0

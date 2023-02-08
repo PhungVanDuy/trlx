@@ -20,10 +20,10 @@
   "optimizer": {
     "type": "AdamW",
     "params": {
-      "lr": 1e-5,
+      "lr": 1e-6,
       "betas": [
         0.9,
-        0.999
+        0.95
       ],
       "eps": 1e-08
     }
@@ -33,7 +33,7 @@
     "params": {
       "warmup_min_lr": 0,
       "warmup_max_lr": "auto",
-      "warmup_num_steps": 100
+      "warmup_num_steps": 200
     }
   }
 }

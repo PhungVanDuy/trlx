@@ -10,37 +10,26 @@ class GPTRewardModel(nn.Module):
         self.config = model.config
         # `gpt-neo(x)` models use `hidden_size` attribute names instead of `n_embd``
         self.config.n_embd = self.config.hidden_size if hasattr(self.config, "hidden_size") else self.config.n_embd
-        self.transformer = model.transformer
+        if "pythia" in model_path:
+            self.transformer = model.gpt_neox
+        else:
+            self.transformer = model.transformer
         self.v_head = nn.Linear(self.config.n_embd, 1, bias=False)
-        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
+        if "pythia" in model_path:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.PAD_ID = self.tokenizer(self.tokenizer.pad_token)["input_ids"][0]
 
     def forward(
         self,
         input_ids=None,
-        past_key_values=None,
         attention_mask=None,
-        token_type_ids=None,
-        position_ids=None,
-        head_mask=None,
-        inputs_embeds=None,
-        mc_token_ids=None,
         labels=None,
-        return_dict=False,
-        output_attentions=False,
-        output_hidden_states=False,
     ):
         loss = None
-        transformer_outputs = self.transformer(
-            input_ids,
-            past_key_values=past_key_values,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            position_ids=position_ids,
-            head_mask=head_mask,
-            inputs_embeds=inputs_embeds,
-        )
+        transformer_outputs = self.transformer(input_ids, attention_mask=attention_mask)
 
         hidden_states = transformer_outputs[0]
 

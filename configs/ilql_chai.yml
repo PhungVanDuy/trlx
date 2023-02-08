@@ -1,0 +1,52 @@
+train:
+  seq_length: 256
+  epochs: 100
+  total_steps: 10000
+  batch_size: 2
+
+  checkpoint_interval: 1000
+  eval_interval: 500
+
+  pipeline: "PromptPipeline"
+  orchestrator: "OfflineOrchestrator"
+  trainer: "AccelerateILQLTrainer"
+  checkpoint_dir: "gpt-j-ilql-chai-duy"
+
+model:
+  model_path: "/fsx/home-duyphung/models/litv2-6B-rev2/models--ChaiML--litv2-6B-rev2/snapshots/7033b427f06dc5115fe1d1dc8dfc5d9f79f5c2a9/"
+  num_layers_unfrozen: -1
+
+tokenizer:
+  tokenizer_path: "/fsx/home-duyphung/models/litv2-6B-rev2/models--ChaiML--litv2-6B-rev2/snapshots/7033b427f06dc5115fe1d1dc8dfc5d9f79f5c2a9/"
+  truncation_side: "left"
+  padding_side: "left"
+
+optimizer:
+  name: "adamw"
+  kwargs:
+    lr: 1.0e-6
+    betas: [0.9, 0.95]
+    eps: 1.0e-8
+    weight_decay: 1.0e-6
+
+scheduler:
+  name: "cosine_annealing"
+  kwargs:
+    T_max: 10000000 # train.total_steps
+    eta_min: 1.0e-7
+
+method:
+  name: "ilqlconfig"
+  tau: 0.6
+  gamma: 0.99
+  cql_scale: 0.1
+  awac_scale: 1
+  alpha: 0.0001
+  beta: 0
+  steps_for_target_q_sync: 1
+  two_qs: true
+  gen_kwargs:
+    max_new_tokens: 20
+    top_k: 50
+    beta: [1, 2, 3, 4]
+    temperature: 1
