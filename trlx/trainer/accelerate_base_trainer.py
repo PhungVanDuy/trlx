@@ -247,7 +247,16 @@ class AccelerateRLTrainer(BaseRLTrainer):
 
     def save(self, directory: Optional[str] = None):
         """Creates a checkpoint of the optimizer, scheduler and model"""
+        # self.accelerator.save_state(directory or self.config.train.checkpoint_dir)
+        # save checkpoint only
+        # import time
+        # time = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+        # dir_out = self.config.train.checkpoint_dir + time
+        # dir_out = f"{self.config.train.checkpoint_dir}_{self.iter_count}"
+        # self.accelerator.save_state(dir_out)
+        # self.save_pretrained(dir_out)
         self.accelerator.save_state(directory or self.config.train.checkpoint_dir)
+        # self.save_pretrained(directory or self.config.train.checkpoint_dir)
 
     @abstractmethod
     def save_pretrained(self, directory: Optional[str] = None):

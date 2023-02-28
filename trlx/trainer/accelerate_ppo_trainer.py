@@ -302,7 +302,6 @@ class AcceleratePPOTrainer(AccelerateRLTrainer):
                 all_str_samples, all_str_prompts, all_str_outputs = self.decode(
                     gathered_prompts, gathered_samples, gathered_prompt_sizes
                 )
-
                 exp_score_time = time()
                 all_scores = torch.tensor(
                     self.reward_fn(

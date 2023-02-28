@@ -1,23 +1,23 @@
 train:
   seq_length: 550
-  epochs: 50
-  total_steps: 100000
+  epochs: 10000
+  total_steps: 6000
   batch_size: 4
 
   checkpoint_interval: 100000
   eval_interval: 400
   save_best: True
-  checkpoint_dir: "/fsx/home-duyphung/all_checkpoints/rerun_ppo_summarize_sample/"
+  checkpoint_dir: "/fsx/home-duyphung/all_checkpoints/pythia-1B-PPO-summ"
 
   pipeline: "PromptPipeline"
   trainer: "AcceleratePPOTrainer"
 
 model:
-  model_path: "CarperAI/openai_summarize_tldr_sft"
+  model_path: "pvduy/pythia-1B-sft-summarize-tldr"
   num_layers_unfrozen: 8
 
 tokenizer:
-  tokenizer_path: "gpt2"
+  tokenizer_path: "EleutherAI/pythia-1.3b-deduped"
   truncation_side: "right"
 
 optimizer:
@@ -26,18 +26,18 @@ optimizer:
     lr: 5.0e-6
     betas: [0.9, 0.999]
     eps: 1.0e-8
-    weight_decay: 0.01
+    weight_decay: 1.0e-6
 
 scheduler:
   name: "cosine_annealing"
   kwargs:
-    T_max: 100000
+    T_max: 1000000
     eta_min: 5.0e-6
 
 method:
   name: "ppoconfig"
   num_rollouts: 128
-  chunk_size: 16
+  chunk_size: 4
   ppo_epochs: 4
   init_kl_coef: 0.1
   target: 6
@@ -46,7 +46,7 @@ method:
   lam: 0.95
   cliprange: 0.2
   cliprange_value: 0.2
-  vf_coef: 0.2
+  vf_coef: 1
   scale_reward: False
   ref_mean: null
   ref_std: null

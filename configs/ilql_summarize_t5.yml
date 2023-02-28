@@ -6,18 +6,19 @@ train:
 
   checkpoint_interval: 100000
   eval_interval: 500
+  save_best: False
 
   pipeline: "PromptPipeline"
   trainer: "AccelerateILQLTrainer"
   checkpoint_dir: "ilql_summarize_t5"
 
 model:
-  model_path: "pvduy/flant5-xl_openai_tldr_sft"
+  model_path: "google/flan-t5-xl"
   num_layers_unfrozen: -1
   model_arch_type: "seq2seq"
 
 tokenizer:
-  tokenizer_path: "pvduy/flant5-xl_openai_tldr_sft"
+  tokenizer_path: "google/flan-t5-xl"
   truncation_side: "left"
 
 optimizer:
