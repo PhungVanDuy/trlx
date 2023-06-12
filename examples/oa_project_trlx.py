@@ -1,16 +1,15 @@
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM
+from tqdm import tqdm
+
 import trlx
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -20,6 +19,7 @@ from trlx.data.configs import (
     TRLConfig,
 )
 from trlx.models.modeling_ppo import PPOConfig
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -31,7 +31,6 @@ class GPTRewardModel(nn.Module):
         self.v_head = nn.Linear(self.config.n_embd, 1, bias=False)
         self.tokenizer = AutoTokenizer.from_pretrained("/mnt/nvme/home/duyphung/FastChat/vicuna-13b-fine-tuned")
         self.PAD_ID = self.tokenizer.pad_token_id
-
 
     def forward(
         self,
@@ -70,7 +69,7 @@ class GPTRewardModel(nn.Module):
 
         loss = 0
         inference = False
-        
+
         for i in range(bs):
             if torch.all(torch.eq(chosen[i], rejected[i])).item():
                 c_inds = (chosen[i] == self.PAD_ID).nonzero()
@@ -189,10 +188,14 @@ def create_reward_fn():
         rw_tokenizer = AutoTokenizer.from_pretrained("/mnt/nvme/home/duyphung/FastChat/vicuna-13b-fine-tuned")
         rw_tokenizer.padding_side = "right"
         rw_model = GPTRewardModel()
-        rw_model.load_state_dict(torch.load("/mnt/nvme/home/duyphung/chai/oa-project-rm/rm_checkpoint/checkpoint-5000/global_step20000/mp_rank_00_model_states.pt")['module'])
+        rw_model.load_state_dict(
+            torch.load(
+                "/mnt/nvme/home/duyphung/chai/oa-project-rm/rm_checkpoint/checkpoint-5000/global_step20000/mp_rank_00_model_states.pt"
+            )["module"]
+        )
         rw_model.half()
         rw_model.eval()
-        rw_device = 7 # set reward model device
+        rw_device = 7  # set reward model device
         rw_model.to(rw_device)
         lsh = pickle.load(open("oa_data/lsh_table_hashing.pickle", "rb"))
         post_summary_dict = pickle.load(open("oa_data/post_label_dict.pickle", "rb"))
@@ -255,20 +258,18 @@ def create_reward_fn():
         return True
 
 
-
 if __name__ == "__main__":
-
     if 1:
         import pandas as pd
         from datasets import load_dataset
-        
+
         ds = load_dataset("pvduy/instruct_sft_data_without_oig_vicuna_format", split="train")
-        
+
         dataset = ds.to_pandas()
         # split pandas dataset into train and validation random
         from sklearn.model_selection import train_test_split
+
         train, val = train_test_split(dataset, test_size=1000, random_state=42)
-        
 
         # Store data into prompt and label pairs
         train_set = [(sample["prompt"], sample["label"]) for _, sample in train.iterrows()]
@@ -277,8 +278,8 @@ if __name__ == "__main__":
         train_posts, train_labels = zip(*train_set)
         val_posts, val_labels = zip(*val_set)
 
-        train_prompts = train['prompt'].tolist()
-        val_prompts = val['prompt'].tolist()
+        train_prompts = train["prompt"].tolist()
+        val_prompts = val["prompt"].tolist()
 
         post_label_dict = {}
         for i in range(len(train_prompts)):
@@ -305,20 +306,20 @@ if __name__ == "__main__":
     else:
         train_prompts = pickle.load(open("oa_data/train_prompts.pickle", "rb"))
         import random
+
         # shuffle train prompts
         random.shuffle(train_prompts)
         # sampling 20% of train prompts
-        train_prompts = train_prompts[0:int(len(train_prompts)*0.2)]
+        train_prompts = train_prompts[0 : int(len(train_prompts) * 0.2)]
         val_prompts = pickle.load(open("oa_data/val_prompts.pickle", "rb"))
         print("Length of train prompts: ", len(train_prompts))
         print("Length of val prompts: ", len(val_prompts))
         reward_fn = create_reward_fn()
-        
+
     trainer = trlx.train(
         reward_fn=reward_fn,
         prompts=train_prompts,
         eval_prompts=val_prompts[0:1000],  # sampling 1000 validation prompts for evaluation speed in training
         config=config,
-        stop_sequences=["### Human:", "Human:"]
+        stop_sequences=["### Human:", "Human:"],
     )
-    

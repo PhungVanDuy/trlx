@@ -1,18 +1,16 @@
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM
 from huggingface_hub import snapshot_download
+from tqdm import tqdm
 
 import trlx
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -23,13 +21,13 @@ from trlx.data.configs import (
 )
 from trlx.models.modeling_ppo import PPOConfig
 
-
 MODEL_BASED = "pvduy/vicuna-13b-v1.1"
 MODEL_BASED_RM = "pvduy/vicuna-13b-v1.1-rm-formated"
 RM_MODEL = "pvduy/vicuna-13b-v1.1-rm-formated"
 RM_REVISION = "main"
 OUT_DIR = "/mnt/hdd/duyphung/ppo_oa_vicuna_v1.1_no_sft"
 DATASET_PATH = "pvduy/sharegpt_alpaca_oa_vicuna_format"
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -43,7 +41,6 @@ class GPTRewardModel(nn.Module):
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "right"
         self.PAD_ID = self.tokenizer.pad_token_id
-
 
     def forward(
         self,
@@ -71,7 +68,7 @@ class GPTRewardModel(nn.Module):
         ends = torch.argmax((input_ids == self.PAD_ID).type(torch.float32), dim=1).view(-1, 1)
         rewards = torch.gather(rewards, 1, ends)
         return rewards
-    
+
 
 config = TRLConfig(
     train=TrainConfig(
@@ -152,12 +149,12 @@ def create_reward_fn():
                 checkpoint_path = os.path.join(directory, fpath)
                 break
 
-        rw_model.load_state_dict(torch.load(checkpoint_path)['module'])
+        rw_model.load_state_dict(torch.load(checkpoint_path)["module"])
         rw_model.half()
         rw_model.eval()
         rw_device = torch.cuda.device_count() - 1
         rw_model.to(rw_device)
-        
+
         def get_reward(samples: List[str]):
             scores_list = []
             batch_size = 40
@@ -184,21 +181,20 @@ def create_reward_fn():
             original_samples = [p + o for p, o in zip(prompts, original_output)]
             original_rewards = get_reward(original_samples)
             return rewards.squeeze() - original_rewards.squeeze()
+
     else:
         return True
     return reward_fn
 
 
-
 if __name__ == "__main__":
-
     import pandas as pd
     from datasets import load_dataset
-    
+
     ds = load_dataset(DATASET_PATH)
     train = ds["train"].to_pandas()
     val = ds["test"].to_pandas().sample(n=1000)
-    
+
     train_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in train.iterrows()]
     val_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in val.iterrows()]
 
@@ -209,5 +205,5 @@ if __name__ == "__main__":
         prompts=train_prompts,
         eval_prompts=val_prompts,
         config=config,
-        stop_sequences=["USER:", "</s>", "ASSISTANT:"]
+        stop_sequences=["USER:", "</s>", "ASSISTANT:"],
     )

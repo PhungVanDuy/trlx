@@ -1,15 +1,17 @@
+import argparse
 import os
+from time import time
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-from huggingface_hub import list_repo_refs
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from datasets import load_dataset
 from accelerate import Accelerator
+from datasets import load_dataset
+from huggingface_hub import list_repo_refs
 from tqdm import tqdm
-from time import time
+
 import wandb
-import argparse
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_path", type=str, default="reciprocate/gpt2-tiny")

@@ -1,14 +1,13 @@
-import torch
-from torch import nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 import os
 
 import torch
 from datasets import load_dataset
+from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from transformers import AutoTokenizer, Trainer, TrainingArguments
+
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -61,7 +60,7 @@ class GPTRewardModel(nn.Module):
 
         loss = 0
         inference = False
-        
+
         for i in range(bs):
             if torch.all(torch.eq(chosen[i], rejected[i])).item():
                 c_inds = (chosen[i] == self.PAD_ID).nonzero()
@@ -205,7 +204,7 @@ def convert_sft_data_to_vicuna(df):
     return df
 
 def convert_vicuna_to_trlx(data):
-    
+
     def convert_conv(conv):
         turns = conv['conversations']
         conv_str = ""

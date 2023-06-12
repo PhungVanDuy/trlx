@@ -1,8 +1,16 @@
-# coding: utf-8
-from transformers import AutoModelForCausalLM, AutoConfig, AutoModelForSequenceClassification, AutoModel, AutoTokenizer
+import pickle
+
 from datasets import load_dataset
 from tqdm import tqdm
-import pickle
+
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+)
+
 model = AutoModelForCausalLM.from_pretrained("pvduy/llama_30b")
 model.half().cuda()
 tokenizer = AutoTokenizer.from_pretrained("llama_30b_tokenizer")

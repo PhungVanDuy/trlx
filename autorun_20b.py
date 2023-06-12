@@ -74,4 +74,4 @@ for unfrozen_layers in list_unfrozen_layers:
         f.write(config)
     # run training
     os.system("accelerate launch examples/ppo_sentiments_20b.py")
-    
+

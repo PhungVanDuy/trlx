@@ -1,18 +1,17 @@
+import math
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM
 from huggingface_hub import snapshot_download
+from tqdm import tqdm
 
 import trlx
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -21,9 +20,7 @@ from trlx.data.configs import (
     TrainConfig,
     TRLConfig,
 )
-import math
 from trlx.models.modeling_ppo import PPOConfig
-
 
 MODEL_BASED = "pvduy/vicuna-13b-v1.1-sft-ver2"
 MODEL_BASED_RM = "EleutherAI/gpt-j-6B"
@@ -31,7 +28,7 @@ RM_BASED = "Dahoas/gptj-rm-static"
 RM_REVISION = "676bfd4d"
 OUT_DIR = "/mnt/hdd/duyphung/ppo_oa_vicuna_version_1"
 DATASET_PATH = "pvduy/oa_vicuna_dolly_grademath_alpaca_leetcode"
-    
+
 config = TRLConfig(
     train=TrainConfig(
         seq_length=1024,
@@ -99,7 +96,6 @@ config = TRLConfig(
 
 def create_reward_fn():
     if os.environ.get("RANK", "0") == "0":
-
         reward_tokenizer = AutoTokenizer.from_pretrained("gpt2")
         reward_tokenizer.pad_token = reward_tokenizer.eos_token
         reward_tokenizer.truncation_side = "left"
@@ -162,26 +158,26 @@ def create_reward_fn():
             original_samples = [p + o + reward_tokenizer.eos_token for p, o in zip(prompts, original_output)]
             original_rewards = get_reward(original_samples)
             return rewards - original_rewards
+
     else:
         return True
     return reward_fn
 
 
-
 if __name__ == "__main__":
-
     import pandas as pd
     from datasets import load_dataset
-    
+
     ds = load_dataset(DATASET_PATH)["train"]
     # train = ds["train"].to_pandas()
     # val = ds["test"].to_pandas().sample(n=1000)
-    
+
     dataset = ds.to_pandas()
     # split pandas dataset into train and validation random
     from sklearn.model_selection import train_test_split
+
     train, val = train_test_split(dataset, test_size=1000, random_state=42)
-    
+
     train_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in train.iterrows()]
     val_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in val.iterrows()]
 
@@ -192,5 +188,5 @@ if __name__ == "__main__":
         prompts=train_prompts,
         eval_prompts=val_prompts,
         config=config,
-        stop_sequences=["</s>", "<|prompter|>", "<assistant>"]
+        stop_sequences=["</s>", "<|prompter|>", "<assistant>"],
     )

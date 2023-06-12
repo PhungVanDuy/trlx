@@ -1,19 +1,24 @@
-import os
-import torch
-import torch.nn.functional as F
-import numpy as np
-from huggingface_hub import list_repo_refs
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from datasets import load_dataset
-from accelerate import Accelerator
-from tqdm import tqdm
-from time import time
-import wandb
 import argparse
-import torch.nn as nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from huggingface_hub import snapshot_download
 import math
+import os
+from time import time
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from accelerate import Accelerator
+from datasets import load_dataset
+from huggingface_hub import list_repo_refs, snapshot_download
+from tqdm import tqdm
+
+import wandb
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+)
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -27,7 +32,6 @@ class GPTRewardModel(nn.Module):
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.tokenizer.padding_side = "left"
         self.PAD_ID = self.tokenizer.pad_token_id
-
 
     def forward(
         self,
@@ -55,7 +59,6 @@ class GPTRewardModel(nn.Module):
         ends = torch.argmax((input_ids == self.PAD_ID).type(torch.float32), dim=1).view(-1, 1)
         rewards = torch.gather(rewards, 1, ends)
         return rewards
-    
 
 
 def plot_calibration(model_name: str, dataset_name: str, delta_scores: np.ndarray) -> str:
@@ -74,18 +77,20 @@ def plot_calibration(model_name: str, dataset_name: str, delta_scores: np.ndarra
 
     textcolor = "#333"
     matplotlib.style.use("ggplot")
-    matplotlib.rcParams.update({
-        "font.family": "sans-serif",
-        "font.size": 15,
-        "text.color": textcolor,
-        "axes.labelcolor": textcolor,
-        "xtick.color": textcolor,
-        "ytick.color": textcolor,
-        "xtick.labelsize": 22,
-        "ytick.labelsize": 22,
-        "figure.titlesize": 14,
-        "figure.figsize": (12, 8),
-    })
+    matplotlib.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.size": 15,
+            "text.color": textcolor,
+            "axes.labelcolor": textcolor,
+            "xtick.color": textcolor,
+            "ytick.color": textcolor,
+            "xtick.labelsize": 22,
+            "ytick.labelsize": 22,
+            "figure.titlesize": 14,
+            "figure.figsize": (12, 8),
+        }
+    )
     pyplot.plot(space, perfect_calibration, label="Perfect calibration", c="grey")
     pyplot.plot(space, probs, label=model_name)
 
@@ -95,7 +100,13 @@ def plot_calibration(model_name: str, dataset_name: str, delta_scores: np.ndarra
     ax.set_title(f"Preference calibration on {dataset_name}", size=26, y=1.02, fontdict={"fontweight": "normal"})
     ax.set_xlabel("Score difference", size=26)
     ax.set_ylabel("Accuracy", size=26)
-    pyplot.legend(loc="best", fontsize=20, title_fontproperties={"weight": "normal", "style": "normal"}, fancybox=False, frameon=False)
+    pyplot.legend(
+        loc="best",
+        fontsize=20,
+        title_fontproperties={"weight": "normal", "style": "normal"},
+        fancybox=False,
+        frameon=False,
+    )
     pyplot.tight_layout()
 
     os.makedirs("calibrations", exist_ok=True)
@@ -103,6 +114,7 @@ def plot_calibration(model_name: str, dataset_name: str, delta_scores: np.ndarra
     pyplot.savefig(image_path, dpi=64)
     pyplot.clf()
     return image_path
+
 
 class RewardModelAlex(nn.Module):
     def __init__(self, checkpoint_path, eos_token_id):
@@ -118,6 +130,7 @@ class RewardModelAlex(nn.Module):
         ends = torch.argmax((input_ids == self.eos_token_id).float(), dim=1).view(-1, 1)
         returns = torch.gather(rewards, 1, ends).squeeze(-1)
         return returns
+
 
 if __name__ == "__main__":
     seed = int(os.environ.get("RANK", 0))
@@ -141,6 +154,7 @@ if __name__ == "__main__":
 
     dataset = load_dataset("pvduy/hh_shp_oa_gpt4_rm_dataset_vicuna_formatoa")
     reward_batch_size = 4
+
     def get_reward(samples):
         input = reward_tokenizer(
             samples,
@@ -160,20 +174,21 @@ if __name__ == "__main__":
                 rewards = reward_model(input_ids, attention_mask=attention_mask).logits.squeeze(-1).detach().cpu()
             out.extend(rewards)
         return torch.hstack(out)
-    
-    df = dataset['test'].to_pandas().iloc[0:1000, ]
+
+    df = dataset["test"].to_pandas().iloc[0:1000,]
     scores_selected = get_reward(df["chosen"].tolist())
     scores_rejected = get_reward(df["rejected"].tolist())
     delta_scores = scores_selected - scores_rejected
     delta_scores = delta_scores.cpu().numpy()
-    
+
     accuracy = sum((delta_scores > 0)) / len(delta_scores)
 
     image_path = plot_calibration(model_name, "vicuna_comp", delta_scores)
 
-    accelerator.log({
-        "accuracy": accuracy,
-        "delta_scores": delta_scores,
-        "calibration": wandb.Image(image_path),
-    })
-    
+    accelerator.log(
+        {
+            "accuracy": accuracy,
+            "delta_scores": delta_scores,
+            "calibration": wandb.Image(image_path),
+        }
+    )

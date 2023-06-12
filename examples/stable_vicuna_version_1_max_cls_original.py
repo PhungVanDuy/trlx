@@ -1,18 +1,21 @@
+import math
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
 from huggingface_hub import snapshot_download
+from tqdm import tqdm
 
 import trlx
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+)
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -21,9 +24,7 @@ from trlx.data.configs import (
     TrainConfig,
     TRLConfig,
 )
-import math
 from trlx.models.modeling_ppo import PPOConfig
-
 
 MODEL_BASED = "pvduy/vicuna-13b-v1.1"
 MODEL_BASED_RM = "EleutherAI/gpt-j-6B"
@@ -31,10 +32,10 @@ RM_BASED = "reciprocate/dahoas-gptj-rm-static"
 RM_REVISION = "676bfd4d"
 OUT_DIR = "/mnt/hdd/duyphung/ppo_oa_vicuna_version_1_2_unfrozen_max_cls_new_rerun_original_vicuna"
 DATASET_PATH = "pvduy/oa_vicuna_dolly_grademath_alpaca_leetcode_original_format"
-    
+
 config = TRLConfig(
     train=TrainConfig(
-        seq_length=1024+128,
+        seq_length=1024 + 128,
         epochs=100,
         total_steps=100000,
         batch_size=1,
@@ -56,12 +57,7 @@ config = TRLConfig(
     ),
     optimizer=OptimizerConfig(
         name="adamw",
-        kwargs={
-            "lr": 1.0e-6,
-            "betas": [0.9, 0.95],
-            "eps": 1.0e-8,
-            "weight_decay": 1.0e-6
-        },
+        kwargs={"lr": 1.0e-6, "betas": [0.9, 0.95], "eps": 1.0e-8, "weight_decay": 1.0e-6},
     ),
     scheduler=SchedulerConfig(
         name="cosine_annealing",
@@ -97,13 +93,14 @@ config = TRLConfig(
 )
 
 
-
 def create_reward_fn():
     if os.environ.get("RANK", "0") == "0":
         tokenizer = AutoTokenizer.from_pretrained("reciprocate/gpt-j_rm_format-oa", revision="501f895")
         tokenizer.truncation_side = "left"
 
-        rm_model = AutoModelForSequenceClassification.from_pretrained("reciprocate/gpt-j_rm_format-oa", revision="501f895")
+        rm_model = AutoModelForSequenceClassification.from_pretrained(
+            "reciprocate/gpt-j_rm_format-oa", revision="501f895"
+        )
         rm_model.requires_grad_(False)
         rm_device = torch.cuda.device_count() - 1
         rm_model = rm_model.eval().half().to(rm_device)
@@ -125,10 +122,10 @@ def create_reward_fn():
                 all_scores.append(scores)
             scores = torch.hstack(all_scores)
             return scores
-        
+
         def replacemen_format(samples):
-            samples = [s[s.find("USER:"):] for s in samples]
-            samples = [x + "<|endoftext|>" if x.endswith("</s>") else x + "</s><|endoftext|>" for x in samples ]
+            samples = [s[s.find("USER:") :] for s in samples]
+            samples = [x + "<|endoftext|>" if x.endswith("</s>") else x + "</s><|endoftext|>" for x in samples]
             samples = [x.replace("</s>USER: ", "</s><|prompter|>") for x in samples]
             samples = [x.replace("ASSISTANT: ", "</s><|assistant|>") for x in samples]
             samples = [x.replace("ASSISTANT:", "</s><|assistant|>") for x in samples]
@@ -144,21 +141,23 @@ def create_reward_fn():
             rewards = get_reward(samples)
             original_rewards = get_reward(original_samples)
             return rewards - original_rewards
+
     else:
         return True
     return reward_fn
 
 
 if __name__ == "__main__":
-
     import pandas as pd
     from datasets import load_dataset
+
     dataset = pd.read_parquet("instruct_data_trlx_version_1_original.parquet")
-    dataset['prompt'] = dataset['prompt'].apply(lambda x: x[x.find("USER:"):])
-    
+    dataset["prompt"] = dataset["prompt"].apply(lambda x: x[x.find("USER:") :])
+
     from sklearn.model_selection import train_test_split
+
     train, val = train_test_split(dataset, test_size=1000, random_state=42)
-    
+
     train_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in train.iterrows()]
     val_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in val.iterrows()]
 
@@ -169,5 +168,5 @@ if __name__ == "__main__":
         prompts=train_prompts,
         eval_prompts=val_prompts,
         config=config,
-        stop_sequences=["</s>", "USER:", "ASSISTANT:"]
+        stop_sequences=["</s>", "USER:", "ASSISTANT:"],
     )

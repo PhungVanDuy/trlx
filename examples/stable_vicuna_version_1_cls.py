@@ -1,18 +1,21 @@
+import math
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM, AutoModelForSequenceClassification
 from huggingface_hub import snapshot_download
+from tqdm import tqdm
 
 import trlx
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+)
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -21,18 +24,17 @@ from trlx.data.configs import (
     TrainConfig,
     TRLConfig,
 )
-import math
 from trlx.models.modeling_ppo import PPOConfig
 
 
-
 def convert_wizard_to_oa():
-    ds  = load_dataset("junelee/wizard_vicuna_70k")["train"]
+    ds = load_dataset("junelee/wizard_vicuna_70k")["train"]
     df = ds.to_pandas()
+
     def apply_oa(sample):
         prompt = ""
         label = ""
-        for (i, turn) in enumerate(sample):
+        for i, turn in enumerate(sample):
             if turn["from"] == "human":
                 prompt = prompt + "<|prompter|>" + turn["value"] + "</s>"
             else:
@@ -42,6 +44,7 @@ def convert_wizard_to_oa():
                 else:
                     prompt = prompt + "<|assistant|>" + turn["value"] + "</s>"
         return {"prompt": prompt, "label": label}
+
     lst_prompt = []
     lst_label = []
     for _, row in tqdm(df.iterrows(), total=len(df)):
@@ -52,8 +55,6 @@ def convert_wizard_to_oa():
     df = pd.DataFrame({"prompt": lst_prompt, "label": lst_label})
     return df
 
-                
-
 
 MODEL_BASED = "pvduy/vicuna-13b-v1.1-sft-ver2"
 MODEL_BASED_RM = "EleutherAI/gpt-j-6B"
@@ -61,10 +62,10 @@ RM_BASED = "reciprocate/dahoas-gptj-rm-static"
 RM_REVISION = "676bfd4d"
 OUT_DIR = "/mnt/hdd/duyphung/ppo_oa_vicuna_version_1_8unfrozen"
 DATASET_PATH = "pvduy/oa_vicuna_dolly_grademath_alpaca_leetcode"
-    
+
 config = TRLConfig(
     train=TrainConfig(
-        seq_length=1024+128,
+        seq_length=1024 + 128,
         epochs=100,
         total_steps=100000,
         batch_size=1,
@@ -167,6 +168,7 @@ config = TRLConfig(
 #                 samples = [s + reward_tokenizer.eos_token for s in samples]
 #             rewards = get_reward(samples)
 
+
 #             if not delta_reward:
 #                 return rewards
 #             if 1:
@@ -178,7 +180,7 @@ config = TRLConfig(
 #     else:
 #         return True
 #     return reward_fn
-# 
+#
 def create_reward_fn():
     if os.environ.get("RANK", "0") == "0":
         tokenizer = AutoTokenizer.from_pretrained("reciprocate/dahoas-gptj-rm-static")
@@ -213,13 +215,13 @@ def create_reward_fn():
             return scores
 
         def reward_fn(samples, prompts, original_output, **kwargs):
-            samples = [s[s.find("<|prompter|>"):] for s in samples]
+            samples = [s[s.find("<|prompter|>") :] for s in samples]
             samples = [s.replace("<|prompter|>", "Human: ") for s in samples]
             samples = [s.replace("<|assistant|>", "Assistant: ") for s in samples]
             samples = [s.replace("</s>", "\n").strip("\n") for s in samples]
             rewards = get_reward(samples)
             if 1:
-                prompts = [p[p.find("<|prompter|>"):] for p in prompts]
+                prompts = [p[p.find("<|prompter|>") :] for p in prompts]
                 prompts = [p.replace("<|prompter|>", "Human: ") for p in prompts]
                 prompts = [p.replace("<|assistant|>", "Assistant: ") for p in prompts]
                 original_samples = [p + o for p, o in zip(prompts, original_output)]
@@ -228,29 +230,31 @@ def create_reward_fn():
                 return rewards - original_rewards
             else:
                 return rewards
+
         return reward_fn
     else:
         return True
 
 
 if __name__ == "__main__":
-
     import pandas as pd
     from datasets import load_dataset
+
     if 0:
         ds = load_dataset(DATASET_PATH)["train"]
         # train = ds["train"].to_pandas()
         # val = ds["test"].to_pandas().sample(n=1000)
-        
+
         dataset = ds.to_pandas().sample(frac=1).reset_index(drop=True)
         # drop duplicates by prompt column in pandas dataset
-        dataset = dataset.drop_duplicates(subset=['prompt'])
+        dataset = dataset.drop_duplicates(subset=["prompt"])
     else:
         dataset = pd.read_parquet("instruct_data_trlx_version_1.parquet")
     # split pandas dataset into train and validation random
     from sklearn.model_selection import train_test_split
+
     train, val = train_test_split(dataset, test_size=1000, random_state=42)
-    
+
     train_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in train.iterrows()]
     val_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in val.iterrows()]
 
@@ -261,5 +265,5 @@ if __name__ == "__main__":
         prompts=train_prompts,
         eval_prompts=val_prompts,
         config=config,
-        stop_sequences=["</s>", "<|prompter|>", "<assistant>"]
+        stop_sequences=["</s>", "<|prompter|>", "<assistant>"],
     )

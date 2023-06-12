@@ -1,0 +1,1 @@
+WANDB_ENTITY=pvduy deepspeed --num_gpus=8 instruct_sft.py

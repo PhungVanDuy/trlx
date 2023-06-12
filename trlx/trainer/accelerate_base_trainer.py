@@ -13,9 +13,9 @@ from accelerate import Accelerator  # type: ignore
 from ray.air import session
 from rich.console import Console
 from rich.table import Table
-from transformers import AutoTokenizer
 
 import trlx.utils.logging as logging
+from transformers import AutoTokenizer
 from trlx.data.configs import TRLConfig
 from trlx.pipeline import MiniBatchIterator
 from trlx.trainer import BaseRLTrainer, register_trainer

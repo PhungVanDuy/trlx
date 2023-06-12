@@ -1,18 +1,16 @@
 import os
-from typing import List
-
 import pickle
+from typing import List
 
 import torch
 import torch.nn as nn
 from datasets import load_dataset
-from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasketch import MinHash, MinHashLSH
-from transformers import AutoModelForCausalLM
 from huggingface_hub import snapshot_download
+from tqdm import tqdm
 
 import trlx
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.data.configs import (
     ModelConfig,
     OptimizerConfig,
@@ -22,6 +20,7 @@ from trlx.data.configs import (
     TRLConfig,
 )
 from trlx.models.modeling_ppo import PPOConfig
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -35,7 +34,6 @@ class GPTRewardModel(nn.Module):
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.PAD_ID = self.tokenizer.pad_token_id
-
 
     def forward(
         self,
@@ -74,7 +72,7 @@ class GPTRewardModel(nn.Module):
 
         loss = 0
         inference = False
-        
+
         for i in range(bs):
             if torch.all(torch.eq(chosen[i], rejected[i])).item():
                 c_inds = (chosen[i] == self.PAD_ID).nonzero()
@@ -127,7 +125,7 @@ config = TRLConfig(
         epochs=100,
         total_steps=100000,
         batch_size=1,
-        #minibatch_size=1,
+        # minibatch_size=1,
         checkpoint_interval=10000,
         eval_interval=100,
         pipeline="PromptPipeline",
@@ -201,12 +199,12 @@ def create_reward_fn():
                 checkpoint_path = os.path.join(directory, fpath)
                 break
 
-        rw_model.load_state_dict(torch.load(checkpoint_path)['module'])
+        rw_model.load_state_dict(torch.load(checkpoint_path)["module"])
         rw_model.half()
         rw_model.eval()
         rw_device = torch.cuda.device_count() - 1
         rw_model.to(rw_device)
-        
+
         def get_reward(samples: List[str]):
             scores_list = []
             batch_size = 20
@@ -235,24 +233,24 @@ def create_reward_fn():
             original_samples = [p + o for p, o in zip(prompts, original_output)]
             original_rewards = get_reward(original_samples)
             return rewards - original_rewards
+
     else:
         return True
     return reward_fn
 
 
-
 if __name__ == "__main__":
-
     import pandas as pd
     from datasets import load_dataset
-    
+
     ds = load_dataset("pvduy/instruct_sft_data_without_oig_vicuna_format", split="train")
-    
+
     dataset = ds.to_pandas()
     # split pandas dataset into train and validation random
     from sklearn.model_selection import train_test_split
+
     train, val = train_test_split(dataset, test_size=1000, random_state=42)
-    
+
     train_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in train.iterrows()]
     val_prompts = [{"prompt": x["prompt"], "original_output": x["label"]} for _, x in val.iterrows()]
 
@@ -263,5 +261,5 @@ if __name__ == "__main__":
         prompts=train_prompts,
         eval_prompts=val_prompts,
         config=config,
-        stop_sequences=["USER:", "</s>", "ASSISTANT:"]
+        stop_sequences=["USER:", "</s>", "ASSISTANT:"],
     )

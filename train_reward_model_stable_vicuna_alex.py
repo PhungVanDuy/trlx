@@ -1,14 +1,13 @@
-import torch
-from torch import nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 import os
 
 import torch
 from datasets import load_dataset
+from torch import nn
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from transformers import AutoTokenizer, Trainer, TrainingArguments
+
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+
 
 class GPTRewardModel(nn.Module):
     def __init__(self):
@@ -52,19 +51,19 @@ class GPTRewardModel(nn.Module):
         bs = input_ids.shape[0] // 2
         chosen_rewards = rewards[:bs]
         rejected_rewards = rewards[bs:]
-        
+
         loss = -torch.log(torch.sigmoid(chosen_rewards - rejected_rewards)).mean()
-        
+
         return {
             "loss": loss,
             "chosen_end_scores": chosen_rewards,
             "rejected_end_scores": rejected_rewards,
         }
-        
-        return rewards
-    
 
-        
+        return rewards
+
+
+
 
 def create_comparison_dataset(path="pvduy/hh_shp_oa_gpt4_rm_dataset", split="train"):
     dataset = load_dataset(path, split=split)#.select(range(1000))
@@ -159,7 +158,7 @@ def convert_sft_data_to_vicuna(df):
     return df
 
 def convert_vicuna_to_trlx(data):
-    
+
     def convert_conv(conv):
         turns = conv['conversations']
         conv_str = ""
