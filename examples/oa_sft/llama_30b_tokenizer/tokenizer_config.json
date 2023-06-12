@@ -1,0 +1,8 @@
+{
+  "bos_token": "",
+  "eos_token": "",
+  "model_max_length": 1000000000000000019884624838656,
+  "special_tokens_map_file": "llama_30b/special_tokens_map.json",
+  "tokenizer_class": "LlamaTokenizer",
+  "unk_token": ""
+}
